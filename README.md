@@ -50,8 +50,10 @@ Buffer management:
   "q" - Kill Augmented Tree buffer (even if it is not the current one)
   "t" / "SPC" / "M-<right>" / "l" - Show subtree for current
                                     file/directory
-  "^" / "M-<up>" / "h" - Go-to-parent
-  "M-h" - Go-to-parent with cursor on previous file/directory name
+  "^" / "M-<up>" / "h" - Go to the parent directory
+  "g" - Update the current tree
+  "M-h" - Go to the parent directory with the cursor on the previous
+        file/directory name
 
 
 File/directory opening:

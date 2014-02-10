@@ -50,7 +50,7 @@
 ;; ====================
 ;;
 ;; - `augmented-tree': Show the Augmented Tree in the currently selected
-					;                      window.
+                                        ;                      window.
 ;; - `augmented-tree-other-window': Show the Augmented Tree in different
 ;;                                  window.
 ;; - `augmented-tree-sidebar': Show the Augmented Tree sidebar window.
@@ -76,8 +76,10 @@
 ;;   "q" - Kill Augmented Tree buffer (even if it is not the current one)
 ;;   "t" / "SPC" / "M-<right>" / "l" - Show subtree for current
 ;;                                     file/directory
-;;   "^" / "M-<up>" / "h" - Go-to-parent
-;;   "M-h" - Go-to-parent with cursor on previous file/directory name
+;;   "^" / "M-<up>" / "h" - Go to the parent directory
+;;   "g" - Update the current tree
+;;   "M-h" - Go to the parent directory with the cursor on the previous
+;;           file/directory name
 ;;
 ;; File/directory opening:
 ;;
@@ -677,6 +679,9 @@ Returns nothing."
                                  (- (length (window-list)) 1)))))
         (setq aug-sidebar-enlarged-p t))))
 
+(defun aug-update(input)
+  (interactive "P")
+  (aug-tree nil (format "%s %s" aug-tree-command default-directory)))
 
 ;;=========================================================================
 ;; Local keymap
@@ -705,6 +710,7 @@ Returns nothing."
     (define-key map (kbd "M-<up>") 'aug-go-to-parent)  ; Same as `^'
     (define-key map (kbd "h") 'aug-go-to-parent)  ; Same as `^'
     (define-key map (kbd "M-h") 'aug-go-to-parent-with-cursor-on-previous)
+    (define-key map (kbd "g") 'aug-update)
     ;; File/directory opening
     (define-key map (kbd "v") 'aug-open-current-thing-read-only)
     (define-key map (kbd "o") 'aug-open-thing-other-window)
