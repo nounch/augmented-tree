@@ -278,8 +278,14 @@ Returns nothing, inserts a string in the current buffer."
                       (insert-text-button
                        (file-name-nondirectory file-path)
                        'action (lambda (x)
-                                 (find-file
-                                  (button-get x 'file-path)))
+                                 (progn
+                                   ;; Shrink the sidebar, if it is
+                                   ;; currently enlarged.
+                                   (if aug-sidebar-enlarged-p
+                                       (call-interactively
+                                        'aug-toggle-preview))
+                                   ;; Actually open the file/dir
+                                   (find-file (button-get x 'file-path))))
                        'file-path file-path))
                     (insert "\n"))))))
         tree-string-lines)
@@ -427,6 +433,7 @@ current window.
 
 Returns nothing."
   (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (find-file-read-only (aug-path-of-current-thing)))
 
 (defun aug-preview-current-line(input)
@@ -434,6 +441,7 @@ Returns nothing."
 
 Returns nothing."
   (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (aug-preview-thing))
 
 (defun aug-preview-next-line(input)
@@ -442,6 +450,7 @@ move point to the next line.
 
 Returns nothing."
   (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (call-interactively 'aug-next-line)
   (aug-preview-thing))
 
@@ -451,6 +460,7 @@ and move point to the previous line.
 
 Returns nothing."
   (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (call-interactively 'aug-previous-line)
   (aug-preview-thing))
 
@@ -472,6 +482,7 @@ Returns nothing."
 
 Returns nothing."
   (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (get-buffer-window (find-file-other-window
                       (aug-path-of-current-thing))))
 
@@ -481,6 +492,7 @@ window.
 
 Returns nothing."
   (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (get-buffer-window (find-file-read-only-other-window
                       (aug-path-of-current-thing))))
 
@@ -636,7 +648,7 @@ Returns nothing."
           (select-window aug-window)))))
 
 (defun aug-toggle-preview(input)
-  "Toggle the preview for the sidebar whindow displaying `aug-buffer'. If
+  "Toggle the preview for the sidebar window displaying `aug-buffer'. If
 the preview is toggled on, the sidebar will save the current window
 configuration and shrink all other windows to their minimally required
 size. If it is turned off again, the previous window configuration will be
