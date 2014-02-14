@@ -204,10 +204,138 @@ more decent with balancing before resizing.")
 should be balanced by compensating (``ignoring'') the sidebar while doing
 so.")
 
+(defcustom aug-indentation-prefix "  "
+  "Prefix to sue when indenting lines in the tree representation.")
+
+(defcustom aug-file-prefix ""
+  "Prefix for file names in the tree representation.")
+
+(defcustom aug-dir-prefix ""
+  "Prefix for dir names in the tree representation.")
+
 
 ;;=========================================================================
 ;; Functions
 ;;=========================================================================
+
+(defun aug-traverse-dir (dir &optional no-dotfiles sort-predicate)
+  "Traverse directory DIR and return a nested hash table with directory and
+file names as keys and either another hash table as value for directories
+or the string \"FILE\" as value for files
+
+DIR - String path of the directory to create a hash table for.
+NO-DOTFILES - Indicates if dotfiles should be included or left out. If `t',
+              dotfiles will be excluded. For any other value dotfiles will
+              be included.
+SORT-PREDICATE - Sor predicate which is called for the directory DIR and
+                 all its subdirectories. It is called with the full path
+                 names for the current file or directory and the full path
+                 name for the next file or directory. Thus, it may be
+                 necessary to call `file-name-nondirectory' or similar
+                 methods on each file/directory name.
+
+Returns a nested hash tables with file or directory names as keys and with
+either nested hash tables (for directories) or the string \"FILE\" (for
+files) as values."
+  (interactive "D")
+  (let ((dir-tree (make-hash-table))
+        (current-dir (make-hash-table))
+        (thing-to-put nil)
+        (sort-predicate (or sort-predicate nil)))
+    (if (file-directory-p dir)
+        (mapc (lambda (dir-or-file)
+                (if (and (file-directory-p dir-or-file))
+                    (setq thing-to-put (aug-traverse-dir dir-or-file
+                                                         (or no-dotfiles
+                                                             nil)
+                                                         sort-predicate))
+                    (setq thing-to-put "FILE"))
+                ;; For RegEx matching one could also use the MATCH argument
+                ;; for `directory-files', but this solution gives
+                ;; flexibility for alternative file/dir
+                ;; ex-/inclusions/sorting etc.
+                (if (not (and (eq no-dotfiles t)
+                              (not (eq (string-match-p
+                                        "^\\.\\w.*$"
+                                        (file-name-nondirectory
+                                         dir-or-file)) nil))))
+                    (puthash dir-or-file thing-to-put dir-tree)))
+              (if sort-predicate
+                  (sort (directory-files dir t "[^.]+" t) sort-predicate)
+                  (directory-files dir t "[^.]+"))))
+    dir-tree))
+
+(defun aug-pretty-print-hash-table (table &optional output-string
+                                          indentation-level
+                                          file-or-dir-name-only)
+  "Pretty print the nested hash table TABLE created by `aug-traverse-dir'.
+
+OUTPUT-STRING - The string to append the pretty printed version to. It is
+                handed to every recursive call of this function.
+INDENTATION-LEVEL - Integer representing the indentation level for the
+                    current element. It is handed to every recursive call
+                    of this function.
+FILE-OR-DIR-NAME-ONLY - If `t', the file or directory name for each file or
+                        directory is printed without its according
+                        directory. Any other value will cause the full path
+                        to be printed.
+
+Returns a pretty-printed string representation of the hash-table TABLE."
+  (maphash (lambda (key value)
+             ;; Creating a new variable each time should not be a problem
+             ;; in reality since the tree cannot be used for massive file
+             ;; system hierarchies anyway.
+             (defvar blanks "")
+             (setq blanks "")
+             (dotimes (i indentation-level)
+               (setq blanks (format "%s%s" blanks
+                                    aug-indentation-prefix)))
+             (if (hash-table-p value)
+                 (progn
+
+                   (setq output-string
+                         (aug-pretty-print-hash-table
+                          value (format "%s\n%s%s%s" output-string blanks
+                                        aug-dir-prefix
+                                        (if file-or-dir-name-only
+                                            (file-name-nondirectory key)
+                                            key))
+                          (1+ indentation-level)
+                          (or file-or-dir-name-only nil))))
+                 (setq output-string
+                       (format "%s\n%s%s%s" output-string blanks
+                               aug-file-prefix
+                               (if file-or-dir-name-only
+                                   (file-name-nondirectory key)
+                                   key)))))
+           table)
+  output-string)
+
+(defun aug-generate-tree-string()
+  (let ((current-dir (replace-regexp-in-string
+                      "\/+$" "" (file-truename default-directory)))
+        (dir-table (make-hash-table)))
+    ;; Include the current directory as the single root element.
+    (puthash current-dir
+             (aug-traverse-dir
+              current-dir t
+              ;; Use a custom sort predicate since `string<'/`string-lessp'
+              ;; and `compare-strings' use code point sorting which will
+              ;; cause upper case files/dirs to be sorted individually in a
+              ;; lexicographically so that they will be displayed before
+              ;; lower case ones in the final output. It is more intuitive
+              ;; for lexicographically sorted files/dirs to be
+              ;; case-insensitive.
+              (lambda (a b)
+                (let ((a (downcase (file-name-nondirectory a)))
+                      (b (downcase (file-name-nondirectory b))))
+                  (if (< (compare-strings a 0 (length a) b 0 (length b))
+                         0)
+                      t
+                      nil))))
+             dir-table)
+    ;; Pretty-print the tree.
+    (aug-pretty-print-hash-table dir-table "" 0)))
 
 
 ;; Path: "\\(\\.*/\\)\\(.*\\)$"
@@ -289,7 +417,11 @@ Returns nothing, inserts a string in the current buffer."
                        'file-path file-path))
                     (insert "\n"))))))
         tree-string-lines)
-  (insert "\n")
+  ;; If the `tree' system command was used, it would be sensible to include
+  ;; a newline at the end so that the cursor navigation will move to the
+  ;; top as soon as it has reached the bottom of the buffer and vice versa.
+  ;;
+  ;; (insert "\n")
   ;; Use a buffer-local keymap.
   (use-local-map aug-keymap)
   ;; Make buffer read-only.
@@ -338,8 +470,14 @@ Returns nothing, creates augmeted tree output and displays it in a buffer."
   (interactive)
   (let* ((tree-command (or tree-command (format "%s %s" aug-tree-command
                                                 default-directory)))
-         (tree-string-lines (split-string (shell-command-to-string
-                                           tree-command) "\n")))
+         (tree-string-lines (split-string (aug-generate-tree-string)
+                                          ;; This is a clever point to
+                                          ;; dispatch to a shell command
+                                          ;; instead
+                                          ;;
+                                          ;; (shell-command-to-string
+                                          ;;  tree-command)
+                                          "\n")))
     (aug-initialize)
     (if current-window
         (progn
