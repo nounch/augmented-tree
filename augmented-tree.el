@@ -404,6 +404,8 @@ Returns nothing, inserts a string in the current buffer."
                   (unless (eq path-match-index nil)
                     (let* ((file-path (substring line path-match-index
                                                  nil))
+			   ;; Distinguish between files, directories and
+			   ;; symlinks.
                            (thing-face (if (file-directory-p file-path)
                                            'font-lock-function-name-face
                                            (if (file-symlink-p file-path)
@@ -431,13 +433,14 @@ Returns nothing, inserts a string in the current buffer."
   ;;
   ;; (insert "\n")
   ;; Use a buffer-local keymap.
-  (use-local-map aug-keymap)
+  (use-local-map augmented-tree-mode-map)
   ;; Make buffer read-only.
   (toggle-read-only 1)
   ;; Move the cursor to the begiing of the buffer.
   (beginning-of-buffer)
   (linum-mode 1)
-  (setq truncate-lines t))
+  (setq truncate-lines t)
+  (augmented-tree-mode))
 
 ;; Alternative way to prevent multiple window splits (Warning: Does
 ;; require manual initial split).
@@ -845,7 +848,7 @@ Returns nothing."
 ;; Local keymap
 ;;=========================================================================
 
-(defvar aug-keymap
+(defvar augmented-tree-mode-map
   (let ((i 0)
         (map (make-keymap)))
     ;; Cursor movement
@@ -892,6 +895,15 @@ be reconfigured without side effects.")
   "Show the Augmented Tree sidebar window.")
 (defalias 'augmented-tree-focus-window 'aug-focus-window
   "Make the window displaying `aug-buffer' the currently selected window.")
+
+
+;;=========================================================================
+;; Major moden
+;;=========================================================================
+
+(define-derived-mode augmented-tree-mode fundamental-mode "Augmented Tree"
+  "Mode for augmented `tree' command.")
+
 
 ;;=========================================================================
 ;; Provide
