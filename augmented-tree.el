@@ -379,6 +379,7 @@ Returns nothing, inserts a string in the current buffer."
                ;; Display the subtree for the current element.
                (aug-tree nil (format "%s %s" aug-tree-command
                                      (button-get x 'parent-path))))
+     'face 'font-lock-string-face
      'parent-path parent-path))
   (insert "\n\n")
   ;; Insert tree element links.
@@ -401,8 +402,13 @@ Returns nothing, inserts a string in the current buffer."
                                          "\\(\\.*/\\)\\(.*\\)$"
                                          line)))
                   (unless (eq path-match-index nil)
-                    (let ((file-path (substring line path-match-index
-                                                nil)))
+                    (let* ((file-path (substring line path-match-index
+                                                 nil))
+                           (thing-face (if (file-directory-p file-path)
+                                           'font-lock-function-name-face
+                                           (if (file-symlink-p file-path)
+                                               'font-lock-constant-face
+                                               'font-lock-keyword-face))))
                       (insert-text-button
                        (file-name-nondirectory file-path)
                        'action (lambda (x)
@@ -414,6 +420,8 @@ Returns nothing, inserts a string in the current buffer."
                                         'aug-toggle-preview))
                                    ;; Actually open the file/dir
                                    (find-file (button-get x 'file-path))))
+                       ;; Add some color.
+                       'face thing-face
                        'file-path file-path))
                     (insert "\n"))))))
         tree-string-lines)
