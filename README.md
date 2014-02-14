@@ -55,6 +55,11 @@ Buffer management:
   "M-h" - Go to the parent directory with the cursor on the previous
         file/directory name
 
+Sorting:
+
+  "R" - Reverse the current sort order
+  "C" - Cycle between available sorting types
+  "|" - Toggle the indentation prefix on/off
 
 File/directory opening:
 
@@ -82,24 +87,32 @@ Resizing:
 
 # Warnings
 
-- Augmented Tree parses the output of the `tree` command. This is and
-  will always be irresponsible because
-  + the output of `tree` is not meant to be read by machines and
-  + there are various versions of `tree` with varying functionality
-    across systems.
+ NOTE:  THE FOLLOWING STATEMENT DOES NOT APPLY TO THE LATEST VERSION SINCE
+       Augmented Tree NOW COMES WITH ITS OWN BUILT-IN DIRECTORY
+       TRAVERSER!!! - This notice remains here until it is clear whether
+       future versions will OPTIONALLY offer to use an external `tree`
+       command for speed improvements (pure C is faster after all).
 
-  So why is it still like that? Well, it is reaonable to assume that a
+
+ - <del>Augmented Tree parses the output of the `tree` command. This is and
+  will always be irresponsible because</del>
+  + <del>the output of `tree` is not meant to be read by machines and</del>
+  + <del>there are various versions of `tree` with varying functionality
+    across systems.</del>
+
+  <del>So why is it still like that? Well, it is reaonable to assume that a
   decent developing system has access to `tree` with all required
-  features and non-cryptic output that can be parsed by Augmented Tree.
+  features and non-cryptic output that can be parsed by Augmented Tree.</del>
 
-  The required features are:
-  + `-f`: Print full path prefix for each file.
-  + `-n`: Turn colorization off always.
-  + `--charset='ASCII`: Use ASCII characters only (This may
+  <del>The required features are:</del>
+  + <del>`-f`: Print full path prefix for each file.</del>
+  + <del>`-n`: Turn colorization off always.</del>
+  + <del>`--charset='ASCII`: Use ASCII characters only (This may
     lead to problems with non-ASCII file/dir names, but then
     again, it may be considered a good habit to not use them
     for file/dir names in software projects anyway). You can try to
-    omit it, but you will have to live with the consequences.
+    omit it, but you will have to live with the consequences.</del>
+
 - Calling Augmented Tree on large and deeply nested directory structures
   (e.g. `/`) takes as long as `tree` is finished and augmented and Emacs
   has inserted it in a buffer (if configured and capable to do so);

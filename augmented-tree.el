@@ -28,6 +28,9 @@
 ;; files and directories. This allows faster navigation (e.g. `show
 ;; subtree' or `show parent') and code browsing in larger codebases.
 ;;
+;; Augmented Tree does not depend on the external `tree' command, but
+;; handles the directory traversal with built-in Emacs facilities.
+;;
 ;; The Augmented Tree packages includes a handy sidebar feature which puts
 ;; the augmented tree in a unobtrusive sidebar which allows fast resizing
 ;; and previewing. The augmeted output, however, does not have to be used
@@ -81,6 +84,12 @@
 ;;   "M-h" - Go to the parent directory with the cursor on the previous
 ;;           file/directory name
 ;;
+;; Sorting:
+;;
+;;   "R" - Reverse the current sort order
+;;   "C" - Cycle between available sorting types
+;    "|" - Toggle the indentation prefix on/off
+;;
 ;; File/directory opening:
 ;;
 ;;   "v" - Open current file/directory read-only
@@ -108,7 +117,13 @@
 ;; Warnings
 ;; ========
 ;;
-;; - Augmented Tree parses the output of the `tree' command. This is and
+;; NOTE: THE FOLLOWING STATEMENT DOES NOT APPLY TO THE LATEST VERSION SINCE
+;;   Augmented Tree NOW COMES WITH ITS OWN BUILT-IN DIRECTORY
+;;   TRAVERSER!!! - This notice remains here until it is clear whether
+;;   future versions will OPTIONALLY offer to use an external `tree'.
+;;   command for speed improvements (pure C is faster after all).
+;;
+;; (- Augmented Tree parses the output of the `tree' command. This is and
 ;;   will always be irresponsible because
 ;;   + the output of `tree' is not meant to be read by machines and
 ;;   + there are various versions of `tree' with varying functionality
@@ -125,7 +140,8 @@
 ;;     lead to problems with non-ASCII file/dir names, but then
 ;;     again, it may be considered a good habit to not use them
 ;;     for file/dir names in software projects anyway). You can try to
-;;     omit it, but you will have to live with the consequences.
+;;     omit it, but you will have to live with the consequences.)
+;;
 ;; - Calling Augmented Tree on large and deeply nested directory structures
 ;;   (e.g. `/') takes as long as `tree' is finished and augmented and Emacs
 ;;   has inserted it in a buffer (if configured and capable to do so);
@@ -176,6 +192,10 @@ not reversed.")
 (defvar aug-sorting-types (list "code-point" "lexicographically")
   "List of strings indicating available sorting types")
 
+(defvar aug-previous-indentation-prefix nil
+  "Previous indentation prefix string. Used for indentation prefix
+toggling.")
+
 
 ;;=========================================================================
 ;; Customizable variables
@@ -217,7 +237,11 @@ should be balanced by compensating (``ignoring'') the sidebar while doing
 so.")
 
 (defcustom aug-indentation-prefix "  "
-  "Prefix to sue when indenting lines in the tree representation.")
+  "Prefix to use when indenting lines in the tree representation.")
+
+(defcustom aug-indentation-delimiter-prefix "| "
+  "Prefix to use when toggling delimiter for lines in the tree
+representation.")
 
 (defcustom aug-file-prefix ""
   "Prefix for file names in the tree representation.")
@@ -884,10 +908,14 @@ Returns nothing."
         (setq aug-sidebar-enlarged-p t))))
 
 (defun aug-update (input)
+  "Update the current tree in case files/directories have been moved, added
+or removed, The cursor jumps to the beginning of the buffer."
   (interactive "P")
   (aug-tree nil (format "%s %s" aug-tree-command default-directory)))
 
 (defun aug-reverse (input)
+  "Reverse the sort order for the current sorting type. For more info on
+sorting types see: `aug-generate-tree-string'."
   (interactive "P")
   (let ((reverse (if (equal aug-currently-reversed t) nil
                      t)))
@@ -898,6 +926,9 @@ Returns nothing."
         (setq aug-currently-reversed nil))))
 
 (defun aug-cycle-sorting (input)
+  "Cycle through the available sorting orders. For more info on sorting
+types see: `aug-generate-tree-string'. This setting will persist when
+moving to parent or child directories."
   (interactive "P")
   (let ((new-sorting-type))
     (setq new-sorting-type (pop aug-sorting-types))
@@ -907,7 +938,22 @@ Returns nothing."
     (aug-tree nil (format "%s %s" aug-tree-command default-directory)
               aug-current-sorting-type aug-currently-reversed))
   (minibuffer-message (format "New sort order: %s"
-			      aug-current-sorting-type)))
+                              aug-current-sorting-type)))
+
+(defun aug-toggle-indentation-prefix (input)
+  "Toggle the indentation prefix on/off. The customizable prefix will be
+used. With a prefix, indentation levels are easier to distinguish."
+  (interactive "P")
+  (let ((blanks ""))
+    (if (not (equal aug-indentation-delimiter-prefix
+                    aug-indentation-prefix))
+        (progn
+          (setq aug-previous-indentation-prefix aug-indentation-prefix)
+          (setq aug-indentation-prefix aug-indentation-delimiter-prefix))
+        (setq aug-indentation-prefix aug-previous-indentation-prefix))
+    (aug-tree nil (format "%s %s" aug-tree-command default-directory)
+              aug-current-sorting-type aug-currently-reversed)))
+
 
 ;;=========================================================================
 ;; Local keymap
@@ -940,6 +986,7 @@ Returns nothing."
     ;; Sorting
     (define-key map (kbd "R") 'aug-reverse)
     (define-key map (kbd "C") 'aug-cycle-sorting)
+    (define-key map (kbd "|") 'aug-toggle-indentation-prefix)
     ;; File/directory opening
     (define-key map (kbd "v") 'aug-open-current-thing-read-only)
     (define-key map (kbd "o") 'aug-open-thing-other-window)
