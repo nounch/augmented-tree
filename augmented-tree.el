@@ -164,6 +164,18 @@ previewing.")
   "Stores the position of the first line in the window so that it can be
 restored after previewing.")
 
+(defvar aug-current-sorting-type "lexicographically"
+  "A string idicating the current sorting type. For available options see:
+`aug-generate-tree-string'.")
+
+(defvar aug-currently-reversed nil
+  "Indicates if the sorting order is currently reversed. `t' means the
+sorting order is currently reversed, anything else means it is currently
+not reversed.")
+
+(defvar aug-sorting-types (list "code-point" "lexicographically")
+  "List of strings indicating available sorting types")
+
 
 ;;=========================================================================
 ;; Customizable variables
@@ -218,7 +230,7 @@ so.")
 ;; Functions
 ;;=========================================================================
 
-(defun aug-traverse-dir (dir &optional no-dotfiles sort-predicate)
+(defun aug-traverse-dir (dir &optional no-dotfiles sort-predicate reverse)
   "Traverse directory DIR and return a nested hash table with directory and
 file names as keys and either another hash table as value for directories
 or the string \"FILE\" as value for files
@@ -233,6 +245,8 @@ SORT-PREDICATE - Sor predicate which is called for the directory DIR and
                  name for the next file or directory. Thus, it may be
                  necessary to call `file-name-nondirectory' or similar
                  methods on each file/directory name.
+REVERSE - If `t', reverse the sort order after sorting using
+         `SORT-PREDICATE'or the default.
 
 Returns a nested hash tables with file or directory names as keys and with
 either nested hash tables (for directories) or the string \"FILE\" (for
@@ -241,18 +255,20 @@ files) as values."
   (let ((dir-tree (make-hash-table))
         (current-dir (make-hash-table))
         (thing-to-put nil)
-        (sort-predicate (or sort-predicate nil)))
+        (sort-predicate (or sort-predicate nil))
+        (reverse (or reverse nil)))
     (if (file-directory-p dir)
         (mapc (lambda (dir-or-file)
                 (if (and (file-directory-p dir-or-file))
                     (setq thing-to-put (aug-traverse-dir dir-or-file
                                                          (or no-dotfiles
                                                              nil)
-                                                         sort-predicate))
+                                                         sort-predicate
+                                                         reverse))
                     (setq thing-to-put "FILE"))
-                ;; For RegEx matching one could also use the MATCH argument
-                ;; for `directory-files', but this solution gives
-                ;; flexibility for alternative file/dir
+                ;; For RegEx matching one could also use the MATCH
+                ;; argument for `directory-files', but this solution
+                ;; gives flexibility for alternative file/dir
                 ;; ex-/inclusions/sorting etc.
                 (if (not (and (eq no-dotfiles t)
                               (not (eq (string-match-p
@@ -260,9 +276,15 @@ files) as values."
                                         (file-name-nondirectory
                                          dir-or-file)) nil))))
                     (puthash dir-or-file thing-to-put dir-tree)))
-              (if sort-predicate
-                  (sort (directory-files dir t "[^.]+" t) sort-predicate)
-                  (directory-files dir t "[^.]+"))))
+              (progn
+                (defvar dir-files nil)
+                (if sort-predicate
+                    (setq dir-files (sort (directory-files dir t "[^.]+" t)
+                                          sort-predicate))
+                    (setq dir-files (directory-files dir t "[^.]+")))
+                (if reverse
+                    (reverse dir-files)
+                    dir-files))))
     dir-tree))
 
 (defun aug-pretty-print-hash-table (table &optional output-string
@@ -311,7 +333,18 @@ Returns a pretty-printed string representation of the hash-table TABLE."
            table)
   output-string)
 
-(defun aug-generate-tree-string()
+(defun aug-generate-tree-string (&optional sorting-type reverse)
+  "Generate the string representation of the directory tree which roots in
+the current directory.
+
+SORTING-TYPE - The string `code-point' or `lexicographically'. `code-point'
+               will sort by code point (upper anc lower case strings are
+               sorted alphabetically, but separately, with upper case
+               strings first). `lexicographically' will sort
+               lexicographically. Default: `lexicographically'. Any other
+               value will force lexiographical sorting.
+REVERSE - If `t' reverse the sorting order after applying the sorting order
+          specified by `sorting-order' or by default."
   (let ((current-dir (replace-regexp-in-string
                       "\/+$" "" (file-truename default-directory)))
         (dir-table (make-hash-table)))
@@ -326,13 +359,17 @@ Returns a pretty-printed string representation of the hash-table TABLE."
               ;; lower case ones in the final output. It is more intuitive
               ;; for lexicographically sorted files/dirs to be
               ;; case-insensitive.
-              (lambda (a b)
-                (let ((a (downcase (file-name-nondirectory a)))
-                      (b (downcase (file-name-nondirectory b))))
-                  (if (< (compare-strings a 0 (length a) b 0 (length b))
-                         0)
-                      t
-                      nil))))
+              (if (equal sorting-type "code-point")
+                  'string<
+                  (lambda (a b)
+                    (let ((a (downcase (file-name-nondirectory a)))
+                          (b (downcase (file-name-nondirectory b))))
+                      (if (< (compare-strings a 0 (length a) b 0 (length
+                                                                  b))
+                             0)
+                          t
+                          nil))))
+              (or reverse nil))
              dir-table)
     ;; Pretty-print the tree.
     (aug-pretty-print-hash-table dir-table "" 0)))
@@ -340,7 +377,7 @@ Returns a pretty-printed string representation of the hash-table TABLE."
 
 ;; Path: "\\(\\.*/\\)\\(.*\\)$"
 ;; Everything before the path: "^[^\\(\\.*/\\)\\(.*\\)$]*"
-(defun aug-augment-line(line)
+(defun aug-augment-line (line)
   "Make a proper file URL (`file://'-prefixed) from the string LINE and
 return it as a string.
 
@@ -352,7 +389,7 @@ Returns a string represnting a file URL."
                               (lambda (match)
                                 (concat "file://" match)))))
 
-(defun aug-insert-tree(tree-string-lines)
+(defun aug-insert-tree (tree-string-lines)
   "Insert an augmented tree created from TREE-STRING-LINES in the currently
 selected buffer.
 
@@ -404,8 +441,8 @@ Returns nothing, inserts a string in the current buffer."
                   (unless (eq path-match-index nil)
                     (let* ((file-path (substring line path-match-index
                                                  nil))
-			   ;; Distinguish between files, directories and
-			   ;; symlinks.
+                           ;; Distinguish between files, directories and
+                           ;; symlinks.
                            (thing-face (if (file-directory-p file-path)
                                            'font-lock-function-name-face
                                            (if (file-symlink-p file-path)
@@ -448,7 +485,7 @@ Returns nothing, inserts a string in the current buffer."
 ;;   (interactive)
 ;;   nil)
 
-(defun aug-initialize()
+(defun aug-initialize ()
   "Initialize Augmented Tree."
   ;; Alternative way to prevent multiple window splits (Warning: Does
   ;; require manual initial split).
@@ -459,7 +496,8 @@ Returns nothing, inserts a string in the current buffer."
   (setq split-width-threshold 9999999)
   (setq split-height-threshold 9999999))
 
-(defun aug-tree(&optional current-window tree-command)
+(defun aug-tree (&optional current-window tree-command sorting-type
+                           reverse)
   "Create augmented output for the `tree' shell command after calling it.
 The tree output is augmented by `clickable' buttons for every directory or
 file in the tree.
@@ -476,12 +514,17 @@ TREE-COMMAND - `tree' shell command to be called before augmenting its
                  again, it may be considered a good habit to not use them
                  for file/dir names anyway). You can try to omit it, but
                  you will have to live with the consequences.
+SORTING-TYPE - String specifying the sorting type. For available strings
+               see: `aug-generate-tree-string'.
+REVERSE - If `t', reverse the sort order after sorting using.
+         `SORT-PREDICATE'or the default.
 
 Returns nothing, creates augmeted tree output and displays it in a buffer."
   (interactive)
   (let* ((tree-command (or tree-command (format "%s %s" aug-tree-command
                                                 default-directory)))
-         (tree-string-lines (split-string (aug-generate-tree-string)
+         (tree-string-lines (split-string (aug-generate-tree-string
+                                           sorting-type reverse)
                                           ;; This is a clever point to
                                           ;; dispatch to a shell command
                                           ;; instead
@@ -500,7 +543,7 @@ Returns nothing, creates augmeted tree output and displays it in a buffer."
           (switch-to-buffer aug-buffer)
           (aug-insert-tree tree-string-lines)))))
 
-(defun aug-tree-other-window(input)
+(defun aug-tree-other-window (input)
   "Like `aug-tree', but display the output in a window other than the
 currently selected one.
 
@@ -512,7 +555,7 @@ in another window."
 ;; It is also possible to use `point-at-bol' and `point-at-eol', but then a
 ;; manual check is still necessary to determin if the point is really at
 ;; the beginning/end of the line using `beginning-of-line'/`end-of-line'.
-(defun aug-get-current-line-length()
+(defun aug-get-current-line-length ()
   "Calculate the current length of the line where point is currently
 located.
 
@@ -526,7 +569,7 @@ Returns the length of the current line as an integer."
       (setq line-end (point)))
     (length (buffer-substring line-start line-end))))
 
-(defun aug-next-line(input)
+(defun aug-next-line (input)
   "Move the cursor to the next line in `aug-buffer'. When at the end of the
 buffer, jump to the first line of the buffer. Skip empty lines.
 
@@ -543,7 +586,7 @@ Returns nothing."
       (backward-char)
       (next-line)))
 
-(defun aug-previous-line(input)
+(defun aug-previous-line (input)
   "Move the cursor to the previous line in `aug-buffer'. When at the
 beginning of the buffer, jump to the last line of the buffer. Skip empty
 lines.
@@ -562,7 +605,7 @@ Returns nothing."
       (backward-char)
       (previous-line)))
 
-(defun aug-kill-buffer(input)
+(defun aug-kill-buffer (input)
   "Kill `aug-buffer', even when the cursor is currently not in that buffer.
 This is a convenient way to remove the sidebar.
 
@@ -570,13 +613,13 @@ Returns nothing."
   (interactive "P")
   (kill-buffer aug-buffer))
 
-(defun aug-path-of-current-thing()
+(defun aug-path-of-current-thing ()
   "Get the file path that the current button is pointing to.
 
 Returns nothing."
   (get-text-property (point) 'file-path))
 
-(defun aug-open-current-thing-read-only(input)
+(defun aug-open-current-thing-read-only (input)
   "Open the file or directory that the current button is pointing to in the
 current window.
 
@@ -585,7 +628,7 @@ Returns nothing."
   (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (find-file-read-only (aug-path-of-current-thing)))
 
-(defun aug-preview-current-line(input)
+(defun aug-preview-current-line (input)
   "Preview the current file or directory in a read-only buffer.
 
 Returns nothing."
@@ -593,7 +636,7 @@ Returns nothing."
   (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (aug-preview-thing))
 
-(defun aug-preview-next-line(input)
+(defun aug-preview-next-line (input)
   "Preview the file or directory in the next line in a read-only buffer and
 move point to the next line.
 
@@ -603,7 +646,7 @@ Returns nothing."
   (call-interactively 'aug-next-line)
   (aug-preview-thing))
 
-(defun aug-preview-previous-line(input)
+(defun aug-preview-previous-line (input)
   "Preview the file or directory in the previous line in a read-only buffer
 and move point to the previous line.
 
@@ -613,7 +656,7 @@ Returns nothing."
   (call-interactively 'aug-previous-line)
   (aug-preview-thing))
 
-(defun aug-preview-thing()
+(defun aug-preview-thing ()
   "Open the current file or directory in a read-only buffer in the current
 window.
 
@@ -626,7 +669,7 @@ Returns nothing."
     ;; original buffer.
     (progn)))
 
-(defun aug-open-thing-other-window(input)
+(defun aug-open-thing-other-window (input)
   "Open the current file or directory buffer in another window.
 
 Returns nothing."
@@ -635,7 +678,7 @@ Returns nothing."
   (get-buffer-window (find-file-other-window
                       (aug-path-of-current-thing))))
 
-(defun aug-open-thing-read-only-other-window(input)
+(defun aug-open-thing-read-only-other-window (input)
   "Open the current file or directory in a read-only buffer in another
 window.
 
@@ -645,7 +688,7 @@ Returns nothing."
   (get-buffer-window (find-file-read-only-other-window
                       (aug-path-of-current-thing))))
 
-(defun aug-show-subtree(input)
+(defun aug-show-subtree (input)
   "Call `aug-tree' for the current file or directory and display it in
 `aug-buffer'.
 
@@ -663,7 +706,7 @@ Returns nothing."
   (aug-tree nil (format "%s %s" aug-tree-command
                         (aug-path-of-current-thing))))
 
-(defun aug-go-to-parent(input)
+(defun aug-go-to-parent (input)
   "Call `aug-tree' for the parent directory and display it in
 `aug-buffer'.
 
@@ -678,7 +721,7 @@ Returns nothing."
     ;; Display the subtree for the current element.
     (aug-tree nil (format "%s %s" aug-tree-command parent-path))))
 
-(defun aug-go-to-parent-with-cursor-on-previous(input)
+(defun aug-go-to-parent-with-cursor-on-previous (input)
   "Call `aug-tree' for the parent directory and display it in
 `aug-buffer'. Put the cursor on the line of the previously shown file or
 directory..
@@ -704,7 +747,7 @@ Returns nothing."
     (unless stop
       (beginning-of-buffer))))
 
-(defun aug-focus-window(input)
+(defun aug-focus-window (input)
   "Make the window which currently displays `aug-buffer' the currently
 selected window.
 
@@ -714,7 +757,7 @@ Returns nothing."
 
 ;; Sidebar
 
-(defun aug-tree-sidebar(input)
+(defun aug-tree-sidebar (input)
   "Produce an augmented tree and display it in a dedicated sidebar window.
 The sidebar window has special properties:
 - It cannot be deleted as long as it displays `aug-buffer'.
@@ -750,7 +793,7 @@ Returns nothing."
   ;; Prevent any other buffer from showing up in the sidebar window.
   (set-window-dedicated-p (selected-window) (not current-prefix-arg)))
 
-(defun aug-resize-sidebar(&optional new-width)
+(defun aug-resize-sidebar (&optional new-width)
   "Resize the sidebar window displaying `aug-buffer' to
 `aug-sidebar-width' or NEW-WIDTH instead, if specified.
 
@@ -767,7 +810,7 @@ Returns nothing."
         (enlarge-window-horizontally (- aug-sidebar-width
                                         current-width)))))
 
-(defun aug-resize(input &optional smart-resizing)
+(defun aug-resize (input &optional smart-resizing)
   "Resize the sidebar window displaying `aug-buffer'. Be smart about
 resizing, if SMART-RESIZING has the value `t'.
 
@@ -796,7 +839,7 @@ Returns nothing."
            (/ (/ (frame-width) (length win-list)) (+ (length win-list) 1)))
           (select-window aug-window)))))
 
-(defun aug-toggle-preview(input)
+(defun aug-toggle-preview (input)
   "Toggle the preview for the sidebar window displaying `aug-buffer'. If
 the preview is toggled on, the sidebar will save the current window
 configuration and shrink all other windows to their minimally required
@@ -840,9 +883,31 @@ Returns nothing."
                                  (- (length (window-list)) 1)))))
         (setq aug-sidebar-enlarged-p t))))
 
-(defun aug-update(input)
+(defun aug-update (input)
   (interactive "P")
   (aug-tree nil (format "%s %s" aug-tree-command default-directory)))
+
+(defun aug-reverse (input)
+  (interactive "P")
+  (let ((reverse (if (equal aug-currently-reversed t) nil
+                     t)))
+    (aug-tree nil (format "%s %s" aug-tree-command default-directory)
+              aug-current-sorting-type reverse)
+    (if (equal reverse t)
+        (setq aug-currently-reversed t)
+        (setq aug-currently-reversed nil))))
+
+(defun aug-cycle-sorting (input)
+  (interactive "P")
+  (let ((new-sorting-type))
+    (setq new-sorting-type (pop aug-sorting-types))
+    (setq aug-sorting-types (append aug-sorting-types (list
+                                                       new-sorting-type)))
+    (setq aug-current-sorting-type new-sorting-type)
+    (aug-tree nil (format "%s %s" aug-tree-command default-directory)
+              aug-current-sorting-type aug-currently-reversed))
+  (minibuffer-message (format "New sort order: %s"
+			      aug-current-sorting-type)))
 
 ;;=========================================================================
 ;; Local keymap
@@ -872,6 +937,9 @@ Returns nothing."
     (define-key map (kbd "h") 'aug-go-to-parent)  ; Same as `^'
     (define-key map (kbd "M-h") 'aug-go-to-parent-with-cursor-on-previous)
     (define-key map (kbd "g") 'aug-update)
+    ;; Sorting
+    (define-key map (kbd "R") 'aug-reverse)
+    (define-key map (kbd "C") 'aug-cycle-sorting)
     ;; File/directory opening
     (define-key map (kbd "v") 'aug-open-current-thing-read-only)
     (define-key map (kbd "o") 'aug-open-thing-other-window)
