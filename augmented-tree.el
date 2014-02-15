@@ -88,7 +88,7 @@
 ;;
 ;;   "R" - Reverse the current sort order
 ;;   "C" - Cycle between available sorting types
-;    "|" - Toggle the indentation prefix on/off
+                                        ;    "|" - Toggle the indentation prefix on/off
 ;;
 ;; File/directory opening:
 ;;
@@ -196,6 +196,10 @@ not reversed.")
   "Previous indentation prefix string. Used for indentation prefix
 toggling.")
 
+(defvar aug-hide-dotfiles t
+  "Indicates if dotfiles/dirs should be included in the output tree. `t'
+means: Do not include directories. Default value: `t'")
+
 
 ;;=========================================================================
 ;; Customizable variables
@@ -249,6 +253,10 @@ representation.")
 (defcustom aug-dir-prefix ""
   "Prefix for dir names in the tree representation.")
 
+(defcustom aug-ignore-list (list ".git" ".svn")
+  "List of file and directory names to ignore even when dotfiles are
+shown.")
+
 
 ;;=========================================================================
 ;; Functions
@@ -294,12 +302,17 @@ files) as values."
                 ;; argument for `directory-files', but this solution
                 ;; gives flexibility for alternative file/dir
                 ;; ex-/inclusions/sorting etc.
-                (if (not (and (eq no-dotfiles t)
+                (if (not (and (eq no-dotfiles nil)
                               (not (eq (string-match-p
                                         "^\\.\\w.*$"
                                         (file-name-nondirectory
                                          dir-or-file)) nil))))
-                    (puthash dir-or-file thing-to-put dir-tree)))
+                    ;; `member' returns non-nil, not `t'.
+                    (if (equal nil (member
+                                    (file-name-nondirectory
+                                     dir-or-file)
+                                    aug-ignore-list))
+                        (puthash dir-or-file thing-to-put dir-tree))))
               (progn
                 (defvar dir-files nil)
                 (if sort-predicate
@@ -357,7 +370,8 @@ Returns a pretty-printed string representation of the hash-table TABLE."
            table)
   output-string)
 
-(defun aug-generate-tree-string (&optional sorting-type reverse)
+(defun aug-generate-tree-string (&optional sorting-type reverse
+                                           no-dotfiles)
   "Generate the string representation of the directory tree which roots in
 the current directory.
 
@@ -368,14 +382,19 @@ SORTING-TYPE - The string `code-point' or `lexicographically'. `code-point'
                lexicographically. Default: `lexicographically'. Any other
                value will force lexiographical sorting.
 REVERSE - If `t' reverse the sorting order after applying the sorting order
-          specified by `sorting-order' or by default."
+          specified by `sorting-order' or by default.
+NO-DOTFILES - If `t', dotfiles will not be included in the output tre.
+              Default vaue: `t'.
+
+Generate a string reprensentation of the file hierarchy (without text
+properties)."
   (let ((current-dir (replace-regexp-in-string
                       "\/+$" "" (file-truename default-directory)))
         (dir-table (make-hash-table)))
     ;; Include the current directory as the single root element.
     (puthash current-dir
              (aug-traverse-dir
-              current-dir t
+              current-dir (or no-dotfiles nil)
               ;; Use a custom sort predicate since `string<'/`string-lessp'
               ;; and `compare-strings' use code point sorting which will
               ;; cause upper case files/dirs to be sorted individually in a
@@ -391,7 +410,6 @@ REVERSE - If `t' reverse the sorting order after applying the sorting order
                       (if (< (compare-strings a 0 (length a) b 0 (length
                                                                   b))
                              0)
-                          t
                           nil))))
               (or reverse nil))
              dir-table)
@@ -521,7 +539,7 @@ Returns nothing, inserts a string in the current buffer."
   (setq split-height-threshold 9999999))
 
 (defun aug-tree (&optional current-window tree-command sorting-type
-                           reverse)
+                           reverse no-dotfiles)
   "Create augmented output for the `tree' shell command after calling it.
 The tree output is augmented by `clickable' buttons for every directory or
 file in the tree.
@@ -541,14 +559,17 @@ TREE-COMMAND - `tree' shell command to be called before augmenting its
 SORTING-TYPE - String specifying the sorting type. For available strings
                see: `aug-generate-tree-string'.
 REVERSE - If `t', reverse the sort order after sorting using.
-         `SORT-PREDICATE'or the default.
+         `SORT-PREDICATE'or the default. Default: `nil'.
+NO-DOTFILES - If `t', dotfiles will not be included in the output tree.
+              Default: `t'.
 
 Returns nothing, creates augmeted tree output and displays it in a buffer."
   (interactive)
   (let* ((tree-command (or tree-command (format "%s %s" aug-tree-command
                                                 default-directory)))
          (tree-string-lines (split-string (aug-generate-tree-string
-                                           sorting-type reverse)
+                                           sorting-type (or reverse nil)
+                                           (or no-dotfiles nil))
                                           ;; This is a clever point to
                                           ;; dispatch to a shell command
                                           ;; instead
@@ -909,26 +930,36 @@ Returns nothing."
 
 (defun aug-update (input)
   "Update the current tree in case files/directories have been moved, added
-or removed, The cursor jumps to the beginning of the buffer."
+or removed, The cursor jumps to the beginning of the buffer.
+
+Returns nothing."
   (interactive "P")
   (aug-tree nil (format "%s %s" aug-tree-command default-directory)))
 
 (defun aug-reverse (input)
   "Reverse the sort order for the current sorting type. For more info on
-sorting types see: `aug-generate-tree-string'."
+sorting types see: `aug-generate-tree-string'.
+
+Returns nothing."
   (interactive "P")
   (let ((reverse (if (equal aug-currently-reversed t) nil
                      t)))
     (aug-tree nil (format "%s %s" aug-tree-command default-directory)
               aug-current-sorting-type reverse)
     (if (equal reverse t)
-        (setq aug-currently-reversed t)
-        (setq aug-currently-reversed nil))))
+        (progn
+          (setq aug-currently-reversed t)
+          (message "Reversed sort order"))
+        (progn
+          (setq aug-currently-reversed nil)
+          (message "Normal sort order")))))
 
 (defun aug-cycle-sorting (input)
   "Cycle through the available sorting orders. For more info on sorting
 types see: `aug-generate-tree-string'. This setting will persist when
-moving to parent or child directories."
+moving to parent or child directories.
+
+Returns nothing."
   (interactive "P")
   (let ((new-sorting-type))
     (setq new-sorting-type (pop aug-sorting-types))
@@ -937,12 +968,14 @@ moving to parent or child directories."
     (setq aug-current-sorting-type new-sorting-type)
     (aug-tree nil (format "%s %s" aug-tree-command default-directory)
               aug-current-sorting-type aug-currently-reversed))
-  (minibuffer-message (format "New sort order: %s"
-                              aug-current-sorting-type)))
+  (message (format "New sort order: %s"
+                   aug-current-sorting-type)))
 
 (defun aug-toggle-indentation-prefix (input)
   "Toggle the indentation prefix on/off. The customizable prefix will be
-used. With a prefix, indentation levels are easier to distinguish."
+used. With a prefix, indentation levels are easier to distinguish.
+
+Returns nothing."
   (interactive "P")
   (let ((blanks ""))
     (if (not (equal aug-indentation-delimiter-prefix
@@ -953,6 +986,25 @@ used. With a prefix, indentation levels are easier to distinguish."
         (setq aug-indentation-prefix aug-previous-indentation-prefix))
     (aug-tree nil (format "%s %s" aug-tree-command default-directory)
               aug-current-sorting-type aug-currently-reversed)))
+
+(defun aug-toggle-dotfiles (input)
+  "Toggle displaying dotfiles/dirs in the tree.
+
+Returns nothing."
+  (interactive "P")
+  (if (equal aug-hide-dotfiles t)
+      (progn
+        (aug-tree nil (format "%s %s" aug-tree-command default-directory)
+                  aug-current-sorting-type aug-currently-reversed
+                  aug-hide-dotfiles)
+        (setq aug-hide-dotfiles nil)
+        (message "Dotfiles now shown"))
+      (progn
+        (aug-tree nil (format "%s %s" aug-tree-command default-directory)
+                  aug-current-sorting-type aug-currently-reversed
+                  aug-hide-dotfiles)
+        (setq aug-hide-dotfiles t)
+        (message "Dotfiles now hidden"))))
 
 
 ;;=========================================================================
@@ -987,6 +1039,7 @@ used. With a prefix, indentation levels are easier to distinguish."
     (define-key map (kbd "R") 'aug-reverse)
     (define-key map (kbd "C") 'aug-cycle-sorting)
     (define-key map (kbd "|") 'aug-toggle-indentation-prefix)
+    (define-key map (kbd ".") 'aug-toggle-dotfiles)
     ;; File/directory opening
     (define-key map (kbd "v") 'aug-open-current-thing-read-only)
     (define-key map (kbd "o") 'aug-open-thing-other-window)
@@ -1010,6 +1063,8 @@ be reconfigured without side effects.")
   "Show the Augmented Tree sidebar window.")
 (defalias 'augmented-tree-focus-window 'aug-focus-window
   "Make the window displaying `aug-buffer' the currently selected window.")
+(defalias 'augmented-tree-kill-buffer 'aug-kill-buffer
+  "Kill the Augmented Tree buffer from wherever the cursor is right now.")
 
 
 ;;=========================================================================

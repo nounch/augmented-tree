@@ -23,6 +23,29 @@ overrriden, if desired.
 The tree buffer provides various key bindings for navigating the tree.
 
 
+# <div style="color: red;">★Features★</div>
+
+- Preview files/directories
+- Toggle indentation markers
+- Toggle showing hidden files/directories
+- Always exclude certain files/directories even when hidden files/directories are not set to be visible
+- Customizable variables (buffer name, files/directories exclusion list, sidebar width, file prefix, directory prefix, ...) via `customize-mode`
+- Colorization (differentiate files from directories)
+- Sidebar or normal buffer or buffer in other window or a combination of either of those
+- Temporarily maximize the sidebar
+- Resize all buffers so they still are balanced even with the sidebar enabled (if possible)
+- Close the sidebar/tree buffer from any other buffer
+- Sticky sidebar: will not close when closing all windows except the current one, will not be used for `*Help*` buffers etc.
+- "Sticky" settings: when navigating to the parent/child tree, keep the current settings (indentation prefix, sort order, sort order reversal)
+- Manually update for file/directory changes
+- Cycle between sorting types (at the moment: lexicographic and by code-point)
+- Reverse the sort order
+- Jump to next/previous button in the tree buffer
+- Navigation: go to parent/go to child/go to parent, but keep point on the button to the previous directory/file
+- Refresh the tree on every interface change (when toggling sort order/indentation marker etc.)
+- Open file/directory read-only or writable
+- Intuitive keybindings (the keymap can be changed at will, though)
+
 # Interactive commands
 
 - `augmented-tree`: Show the Augmented Tree in the currently selected window.
@@ -76,22 +99,12 @@ Resizing:
 
 # Notes
 
-- Vim-like tree navigation is possible with "h", "j", "k" and "l".
-- There is no folding functionality. `tree` always shows the full
-  subtree. However, there is the option to preview a target directory
-  in another window which gives a flat list of all files/directories in
-  this directory.
-- Moving the cursor to the next file/dir in the same level by skipping
-  all lines in between is not possible.
 
-
-# Warnings
-
- NOTE:  THE FOLLOWING STATEMENT DOES NOT APPLY TO THE LATEST VERSION SINCE
+<div style="color: #AFAFAF;"> NOTE:  THE FOLLOWING STATEMENT DOES NOT APPLY TO THE LATEST VERSION SINCE
        Augmented Tree NOW COMES WITH ITS OWN BUILT-IN DIRECTORY
        TRAVERSER!!! - This notice remains here until it is clear whether
        future versions will OPTIONALLY offer to use an external `tree`
-       command for speed improvements (pure C is faster after all).
+       command for speed improvements (pure C is faster after all).</div>
 
 
  - <del>Augmented Tree parses the output of the `tree` command. This is and
@@ -113,6 +126,13 @@ Resizing:
     for file/dir names in software projects anyway). You can try to
     omit it, but you will have to live with the consequences.</del>
 
+- Vim-like tree navigation is possible with "h", "j", "k" and "l".
+- There is no folding functionality. The full subtree is always shown.
+  However, there is the option to preview a target directory
+  in another window which gives a flat list of all files/directories in
+  this directory.
+- Moving the cursor to the next file/dir in the same level by skipping
+  all lines in between is not possible.
 - Calling Augmented Tree on large and deeply nested directory structures
   (e.g. `/`) takes as long as `tree` is finished and augmented and Emacs
   has inserted it in a buffer (if configured and capable to do so);
@@ -131,4 +151,5 @@ Resizing:
 (global-set-key (kbd "C-c M-o") 'augmented-tree-other-window)
 (global-set-key (kbd "C-c M-s") 'augmented-tree-sidebar)
 (global-set-key (kbd "C-c M-f") 'augmented-tree-focus-window)
+(global-set-key (kbd "C-c M-q") 'augmented-tree-kill-buffer)
 ```
