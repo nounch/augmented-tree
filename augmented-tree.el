@@ -410,6 +410,7 @@ properties)."
                       (if (< (compare-strings a 0 (length a) b 0 (length
                                                                   b))
                              0)
+			  t
                           nil))))
               (or reverse nil))
              dir-table)
@@ -568,7 +569,8 @@ Returns nothing, creates augmeted tree output and displays it in a buffer."
   (let* ((tree-command (or tree-command (format "%s %s" aug-tree-command
                                                 default-directory)))
          (tree-string-lines (split-string (aug-generate-tree-string
-                                           sorting-type (or reverse nil)
+                                           (or sorting-type nil)
+                                           (or reverse nil)
                                            (or no-dotfiles nil))
                                           ;; This is a clever point to
                                           ;; dispatch to a shell command
