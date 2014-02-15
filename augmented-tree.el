@@ -88,11 +88,13 @@
 ;;
 ;;   "R" - Reverse the current sort order
 ;;   "C" - Cycle between available sorting types
-                                        ;    "|" - Toggle the indentation prefix on/off
+;;    "|" - Toggle the indentation prefix on/off
 ;;
 ;; File/directory opening:
 ;;
-;;   "v" - Open current file/directory read-only
+;;   "v" - Open current file/directory in view mode. Hitting "q" then will
+;;         move the cursor back to the Augmented Tree buffer.
+;;   "V" - Open current file/directory read-only
 ;;   "o" - Open current file/directory in other window
 ;;   "r" - Open current file/directory read-only in other window
 ;;
@@ -199,6 +201,10 @@ toggling.")
 (defvar aug-hide-dotfiles t
   "Indicates if dotfiles/dirs should be included in the output tree. `t'
 means: Do not include directories. Default value: `t'")
+
+(defvar aug-in-other-window nil
+  "Indicates whether Augmented Tree has been started using
+`aug-tree-other-window'. `t' if this is the case.")
 
 
 ;;=========================================================================
@@ -410,7 +416,7 @@ properties)."
                       (if (< (compare-strings a 0 (length a) b 0 (length
                                                                   b))
                              0)
-			  t
+                          t
                           nil))))
               (or reverse nil))
              dir-table)
@@ -597,6 +603,7 @@ currently selected one.
 Returns nothing, creates augmeted tree output and displays it in a buffer
 in another window."
   (interactive "P")
+  (setq aug-in-other-window t)
   (aug-tree t))
 
 ;; It is also possible to use `point-at-bol' and `point-at-eol', but then a
@@ -658,6 +665,7 @@ This is a convenient way to remove the sidebar.
 
 Returns nothing."
   (interactive "P")
+  (setq aug-in-other-window nil)
   (kill-buffer aug-buffer))
 
 (defun aug-path-of-current-thing ()
@@ -674,6 +682,28 @@ Returns nothing."
   (interactive "P")
   (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
   (find-file-read-only (aug-path-of-current-thing)))
+
+(defun aug-open-current-thing-in-view-mode (input)
+  "Open the file or directory that the current button is pointing to in the
+current window.
+
+Returns nothing."
+  (interactive "P")
+  (if aug-sidebar-enlarged-p (call-interactively 'aug-toggle-preview))
+  ;; If there is only one window, use the current one for the preview,
+  ;; otherwise use another one. This is more intuitive.
+  (if (equal aug-in-other-window t) ;; (equal (length (window-list)) 1)
+      (find-file-other-window (aug-path-of-current-thing))
+      (find-file (aug-path-of-current-thing)))
+  (view-mode 1)
+  ;; Override the `q' key to kill the current buffer and to go back to the
+  ;; Augmented Tree buffer.
+  (define-key view-mode-map (kbd "q")
+    (lambda ()
+      (interactive)
+      (kill-buffer)
+      (unless (equal (select-window (get-buffer-window aug-buffer)) nil)
+        (switch-to-buffer aug-buffer)))))
 
 (defun aug-preview-current-line (input)
   "Preview the current file or directory in a read-only buffer.
@@ -1043,7 +1073,8 @@ Returns nothing."
     (define-key map (kbd "|") 'aug-toggle-indentation-prefix)
     (define-key map (kbd ".") 'aug-toggle-dotfiles)
     ;; File/directory opening
-    (define-key map (kbd "v") 'aug-open-current-thing-read-only)
+    (define-key map (kbd "V") 'aug-open-current-thing-read-only)
+    (define-key map (kbd "v") 'aug-open-current-thing-in-view-mode)
     (define-key map (kbd "o") 'aug-open-thing-other-window)
     (define-key map (kbd "r") 'aug-open-thing-read-only-other-window)
     ;; Resizing

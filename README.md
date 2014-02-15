@@ -23,7 +23,7 @@ overrriden, if desired.
 The tree buffer provides various key bindings for navigating the tree.
 
 
-# <div style="color: red;">★Features★</div>
+# ★Features★
 
 - Preview files/directories
 - Toggle indentation markers
@@ -43,6 +43,7 @@ The tree buffer provides various key bindings for navigating the tree.
 - Jump to next/previous button in the tree buffer
 - Navigation: go to parent/go to child/go to parent, but keep point on the button to the previous directory/file
 - Refresh the tree on every interface change (when toggling sort order/indentation marker etc.)
+- Open file/directory in view mode and jump back to the Augmented Tree buffer when hitting `q`
 - Open file/directory read-only or writable
 - Intuitive keybindings (the keymap can be changed at will, though)
 
@@ -86,7 +87,9 @@ Sorting:
 
 File/directory opening:
 
-  "v" - Open current file/directory read-only
+  "v" - Open current file/directory in view mode. Hitting "q" then will
+        move the cursor back to the Augmented Tree buffer.
+  "V" - Open current file/directory read-only
   "o" - Open current file/directory in other window
   "r" - Open current file/directory read-only in other window
 
@@ -100,11 +103,11 @@ Resizing:
 # Notes
 
 
-<div style="color: #AFAFAF;"> NOTE:  THE FOLLOWING STATEMENT DOES NOT APPLY TO THE LATEST VERSION SINCE
+NOTE:  THE FOLLOWING STATEMENT DOES NOT APPLY TO THE LATEST VERSION SINCE
        Augmented Tree NOW COMES WITH ITS OWN BUILT-IN DIRECTORY
        TRAVERSER!!! - This notice remains here until it is clear whether
        future versions will OPTIONALLY offer to use an external `tree`
-       command for speed improvements (pure C is faster after all).</div>
+       command for speed improvements (pure C is faster after all).
 
 
  - <del>Augmented Tree parses the output of the `tree` command. This is and
@@ -126,6 +129,7 @@ Resizing:
     for file/dir names in software projects anyway). You can try to
     omit it, but you will have to live with the consequences.</del>
 
+- Augmented Tree tries to be as intuitive as possible when in doubt. As a result, most commands will rescan the directory tree and update it for moved, new or removed files and directories. So simple interface changes (toggling the indentation marker, changing/reversing the sort order, toggling hidden files etc.) will result in a rescan.
 - Vim-like tree navigation is possible with "h", "j", "k" and "l".
 - There is no folding functionality. The full subtree is always shown.
   However, there is the option to preview a target directory
@@ -141,7 +145,7 @@ Resizing:
   not file system trees.
 - Augmented Tree does work with vertically split windows. `aug-resize`,
   however may show unexpected behavior,
-
+- Always use `aug-kill-buffer` to quit Augmented Tree (e.g. hit `q` while the cursor is in the Augmented Tree buffer). This is necessary for deinitialization.
 
 # Usage
 
