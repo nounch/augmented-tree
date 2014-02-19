@@ -72,6 +72,9 @@ File preview:
   "N" - Preview next line
   "P" - Preview previous line
   "M-k" / "i" - Preview current line
+  "C-c o a" - Open all files and directories in the current region
+  "C-c o f" - Open all files in the current region
+  "C-c o d" - Open all directories in the current region
 
 Buffer management:
 

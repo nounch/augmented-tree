@@ -75,6 +75,9 @@
 ;;   "N" - Preview next line
 ;;   "P" - Preview previous line
 ;;   "M-k" / "i" - Preview current line
+;;   "C-c o a" - Open all files and directories in the current region
+;;   "C-c o f" - Open all files in the current region
+;;   "C-c o d" - Open all directories in the current region
 ;;
 ;; Buffer management:
 ;;
@@ -1323,6 +1326,57 @@ Returns nothing."
   (setq line-move-ignore-invisible t)
   (setq line-move-visual t))
 
+(defun aug-open-files-and-dirs-in-region (input)
+  "Open all files and directories in the current region.
+
+Returns nothing."
+  (interactive "P")
+  (let ((beginning (region-beginning))
+        (end (region-end)))
+    (save-excursion
+      (goto-char beginning)
+      (call-interactively 'aug-previous-line)
+      (call-interactively 'aug-next-line)
+      (while (< (point) end)
+        (message (format "OPEN: %s" (get-text-property (point)
+                                                       'file-path)))
+        (find-file-noselect (get-text-property (point) 'file-path))
+        (call-interactively 'aug-next-line)))))
+
+(defun aug-open-files-in-region (input)
+  "Open all files in the current region.
+
+Returns nothing."
+  (interactive "P")
+  (let ((beginning (region-beginning))
+        (end (region-end)))
+    (save-excursion
+      (goto-char beginning)
+      (call-interactively 'aug-previous-line)
+      (call-interactively 'aug-next-line)
+      (while (< (point) end)
+        (if (equal (get-text-property (point) 'aug-thing-type)
+                   aug-thing-type-file)
+            (find-file-noselect (get-text-property (point) 'file-path)))
+        (call-interactively 'aug-next-line)))))
+
+(defun aug-open-dirs-in-region (input)
+  "Open all directories in the current region.
+
+Returns nothing."
+  (interactive "P")
+  (let ((beginning (region-beginning))
+        (end (region-end)))
+    (save-excursion
+      (goto-char beginning)
+      (call-interactively 'aug-previous-line)
+      (call-interactively 'aug-next-line)
+      (while (< (point) end)
+        (if (equal (get-text-property (point) 'aug-thing-type)
+                   aug-thing-type-directory)
+            (find-file-noselect (get-text-property (point) 'file-path)))
+        (call-interactively 'aug-next-line)))))
+
 
 ;;=========================================================================
 ;; Local keymap
@@ -1343,6 +1397,9 @@ Returns nothing."
     (define-key map (kbd "P") 'aug-preview-previous-line)
     (define-key map (kbd "M-k") 'aug-preview-current-line)
     (define-key map (kbd "i") 'aug-preview-current-line)  ; Same as `M-k'
+    (define-key map (kbd "C-c o a") 'aug-open-files-and-dirs-in-region)
+    (define-key map (kbd "C-c o f") 'aug-open-files-in-region)
+    (define-key map (kbd "C-c o d") 'aug-open-dirs-in-region)
     ;; Buffer management
     (define-key map (kbd "q") 'aug-kill-buffer)
     (define-key map (kbd "t") 'aug-show-subtree)
