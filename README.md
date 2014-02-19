@@ -28,6 +28,7 @@ The tree buffer provides various key bindings for navigating the tree.
 - Preview files/directories
 - Toggle indentation markers
 - Toggle showing hidden files/directories
+- Toggle showing the subtree of the current directory
 - Always exclude certain files/directories even when hidden files/directories are not set to be visible
 - Customizable variables (buffer name, files/directories exclusion list, sidebar width, file prefix, directory prefix, ...) via `customize-mode`
 - Colorization (differentiate files from directories)
@@ -84,6 +85,8 @@ Sorting:
   "R" - Reverse the current sort order
   "C" - Cycle between available sorting types
   "|" - Toggle the indentation prefix on/off
+  "." - Toggle displaying dotfiles/dirs.
+  "m" - Toggle the visibility of the subtree of the current directory.
 
 File/directory opening:
 

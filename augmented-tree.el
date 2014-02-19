@@ -88,7 +88,9 @@
 ;;
 ;;   "R" - Reverse the current sort order
 ;;   "C" - Cycle between available sorting types
-;;    "|" - Toggle the indentation prefix on/off
+;;   "|" - Toggle the indentation prefix on/off
+;;   "." - Toggle displaying dotfiles/dirs.
+;;   "m" - Toggle the visibility of the subtree of the current directory.
 ;;
 ;; File/directory opening:
 ;;
@@ -206,6 +208,16 @@ means: Do not include directories. Default value: `t'")
   "Indicates whether Augmented Tree has been started using
 `aug-tree-other-window'. `t' if this is the case.")
 
+(defvar aug-invisibility-marker :invisible
+  "Text property used to make text invisible. This is used in combination
+with `buffer-invisibility-spec'.")
+
+(defvar aug-thing-type-directory :directory
+  "Indicates that the referenced thing is a direcotry.")
+
+(defvar aug-thing-type-file :file
+  "Indicates that the referenced thing is a file.")
+
 
 ;;=========================================================================
 ;; Customizable variables
@@ -262,6 +274,10 @@ representation.")
 (defcustom aug-ignore-list (list ".git" ".svn")
   "List of file and directory names to ignore even when dotfiles are
 shown.")
+
+(defcustom aug-hidden-marker " [+]"
+  "Marker which is attached to a directory name which has its current
+subtree hidden.")
 
 
 ;;=========================================================================
@@ -446,6 +462,14 @@ TREE-STRING-LINES - A list of strings produced from splitting the output of
                     calling the `tree' shell command on newlines (`\n').
 
 Returns nothing, inserts a string in the current buffer."
+  (augmented-tree-mode)
+  ;; Set up invisibility conditions. Important: This has to be run after
+  ;; starting `augmented-tree-mode' since the mode initialization would
+  ;; override it again.
+  (with-current-buffer (current-buffer)
+    (add-to-invisibility-spec aug-invisibility-marker)
+    (remove-from-invisibility-spec t)
+    (setq buffer-invisibility-spec (list aug-invisibility-marker)))
   ;; Make buffer writable.
   (toggle-read-only -1)
   (erase-buffer)
@@ -510,7 +534,24 @@ Returns nothing, inserts a string in the current buffer."
                                    (find-file (button-get x 'file-path))))
                        ;; Add some color.
                        'face thing-face
-                       'file-path file-path))
+                       'file-path file-path
+                       ;; Initialize `invisible' property with empty list.
+                       ;; If a line is set to be invisible,
+                       ;; `aug-invisibility-marker' is added to the list.
+                       ;; If there is no `aug-invisibility-marker' lef in
+                       ;; the list, the line is visible. Initializing the
+                       ;; whole is not necessary since it is ensured that
+                       ;; the cursor is always on the button when examining
+                       ;; a lines visibility.
+                       'invisible '(:init)
+                       ;; Initialize the visibility marker for a directory
+                       ;; (or file). This is `t' when the subtree of a dir
+                       ;; (or file) is currently hidden and `nil' if it is
+                       ;; currently visible.
+                       'subtree-hidden nil
+                       'aug-thing-type (if (file-directory-p file-path)
+                                           aug-thing-type-directory
+                                           aug-thing-type-file)))
                     (insert "\n"))))))
         tree-string-lines)
   ;; If the `tree' system command was used, it would be sensible to include
@@ -525,8 +566,7 @@ Returns nothing, inserts a string in the current buffer."
   ;; Move the cursor to the begiing of the buffer.
   (beginning-of-buffer)
   (linum-mode 1)
-  (setq truncate-lines t)
-  (augmented-tree-mode))
+  (setq truncate-lines t))
 
 ;; Alternative way to prevent multiple window splits (Warning: Does
 ;; require manual initial split).
@@ -623,13 +663,32 @@ Returns the length of the current line as an integer."
       (setq line-end (point)))
     (length (buffer-substring line-start line-end))))
 
+(defun aug-line-move (n)
+  "Moves point N lines down if N is positive and up N lines if it is
+negative even for invisible lines. This compensates for
+`next-line'/`line-move' not working correctly even if `line-move-visual'
+and `line-move-ingnore-invisible' are set to be `nil'.
+
+N - Integer number indicating how many lines to move point. May have a
+    negative prefix.
+
+Returns nothing."
+  (let ((n (or n 1)))
+    (if (wholenump n)
+        (dotimes (i n)
+          (end-of-line)
+          (forward-char))
+        (dotimes (i (abs n))
+          (beginning-of-line)
+          (backward-char)))))
+
 (defun aug-next-line (input)
   "Move the cursor to the next line in `aug-buffer'. When at the end of the
 buffer, jump to the first line of the buffer. Skip empty lines.
 
 Returns nothing."
   (interactive "P")
-  (next-line)
+  (line-move 1)
   ;; If the cursor is at the end of the buffer, jump to the beginning of
   ;; the buffer.
   (if (= (point) (point-max))
@@ -638,7 +697,7 @@ Returns nothing."
   ;; Skip single empty lines.
   (if (not (= (aug-get-current-line-length) 0))
       (backward-char)
-      (next-line)))
+      (line-move 1)))
 
 (defun aug-previous-line (input)
   "Move the cursor to the previous line in `aug-buffer'. When at the
@@ -652,12 +711,12 @@ Returns nothing."
   (move-beginning-of-line nil)
   (if (= (point) (point-min))
       (end-of-buffer))
-  (previous-line)
+  (line-move -1)
   (move-end-of-line nil)
   ;; Skip single empty lines.
   (if (not (= (aug-get-current-line-length) 0))
       (backward-char)
-      (previous-line)))
+      (line-move -1)))
 
 (defun aug-kill-buffer (input)
   "Kill `aug-buffer', even when the cursor is currently not in that buffer.
@@ -966,7 +1025,10 @@ or removed, The cursor jumps to the beginning of the buffer.
 
 Returns nothing."
   (interactive "P")
-  (aug-tree nil (format "%s %s" aug-tree-command default-directory)))
+  (aug-tree nil (format "%s %s" aug-tree-command default-directory))
+  ;; Remove any potential overlay residues.
+  (remove-overlays (point-min) (point-max) 'after-string
+                   aug-hidden-marker))
 
 (defun aug-reverse (input)
   "Reverse the sort order for the current sorting type. For more info on
@@ -1038,6 +1100,192 @@ Returns nothing."
         (setq aug-hide-dotfiles t)
         (message "Dotfiles now hidden"))))
 
+(defun aug-toggle-current-line-visibility (make-invisible start end)
+  "Toggle the visibility of the string between START and END accoring to
+MAKE-VISIBLE by appending or removing `aug-invisibility-marker' to the
+list comprisign the 'invisible text property of the string.
+
+Check the setting of `buffer-invisibility-spec' for more details.
+
+Note: Any line movement in this function should be done using
+`aug-line-move' instead of `line-move' or `next-line'. See `aug-line-move'
+for more details.
+
+START - Point in the buffer.
+END - Point in the buffer which has to be located *after* START. There are
+      no guarantees for any violations of this constraint.
+MAKE-VISIBLE - Indicates if the string should be made visible (`t') or if
+               it should be made invisible (any non-`t' value).
+
+Returns nothing."
+  ;; Allow moving to invisible lines.
+  (setq line-move-ignore-invisible nil)
+  (setq line-move-visual nil)
+  (let ((previous-invisibility-list (get-text-property (point)
+                                                       'invisible)))
+    ;; Add another invisibility marker to the list.
+    (progn
+      (if (equal make-invisible t)
+          ;; Make text invisible.
+          (progn
+            (setq previous-invisibility-list
+                  (append (list aug-invisibility-marker)
+                          previous-invisibility-list))
+            (put-text-property start end 'invisible
+                               previous-invisibility-list))
+          ;; Make text visible.
+          (progn
+            (if (> (length previous-invisibility-list) 1)
+                (progn
+                  (pop previous-invisibility-list)))
+            (put-text-property start end 'invisible
+                               previous-invisibility-list)))))
+  ;; Disallow moving to invisible lines.
+  (setq line-move-ignore-invisible t)
+  (setq line-move-visual t))
+
+(defun aug-next-line-is-nested ()
+  "Returns `t' if the next line in the treee has a nested file or
+directory and `nil' otherwise. This uses `save-excursion' and does put
+point back to its previous position.
+
+Returns `t' if there is a subtree, `nil' otherwise."
+  (let ((current-file-path (save-excursion
+                             (end-of-line)
+                             (backward-char 1)
+                             (file-name-directory
+                              (directory-file-name (get-text-property
+                                                    (point)
+                                                    'file-path))))))
+    (save-excursion
+      (aug-line-move 1)
+      (end-of-line)
+      (backward-char 1)
+      (> (length (file-name-directory
+                  (directory-file-name (get-text-property (point)
+                                                          'file-path))))
+         (length current-file-path)))))
+
+(defun aug-toggle-subtree-visibility (input)
+  "Toggle the visibility of the directory point is currently on. If the
+point is not currently on the name of a directory, this function will fail
+graciously. A hidden directory is suffixed with an `afters-string' overlay
+consisting of `aug-hidden-marker'. Hidden directories within other hidden
+directories will stay hidden even if the outer directories are visible
+again.
+
+Note: Any line movement in this function should be done using
+`aug-line-move' instead of `line-move' or `next-line'. See `aug-line-move'
+for more details.
+
+Returns nothing."
+  ;; Important note: Do not use `aug-next-line'/`aug-previous-line'/
+  ;; `line-move'/`next-line'/`previous-line'/etc. since they do not work
+  ;; properly (read: `not at all') with lines which have the `invisible'
+  ;; property set (including the newline). Instead, rely on
+  ;; `aug-line-move'/`beginning-of-line'/`end-of-line'/`forward-char'/
+  ;; `backward-char'.
+  (interactive "P")
+  ;; Allow moving to invisible lines.
+  (setq line-move-ignore-invisible nil)
+  (setq line-move-visual nil)
+  (let ((start (save-excursion
+                 (progn
+                   (beginning-of-line)
+                   (point))))
+        (end (save-excursion
+               (progn
+                 (aug-line-move 1)
+                 (point))))
+        (current-file-path (get-text-property (point) 'file-path))
+        (current-subtree-hidden (get-text-property (point)
+                                                   'subtree-hidden))
+        (current-overlay nil))
+    (save-excursion  ; Keep the cursor on the current directory name
+      (toggle-read-only -1)
+      ;; Exclude files since only directories can have subtrees. This also
+      ;; excludes the `Go up' link and other potential future user
+      ;; interface elements. It also prevents glitches in case the user
+      ;; runs `aug-toggle-subtree-visibility' while the cursor is not
+      ;; exactly on a clickable text.
+      (if (and (equal (get-text-property (point) 'aug-thing-type)
+                      aug-thing-type-directory)
+               (aug-next-line-is-nested))
+          ;; Check if the subtree is already hidden.
+          (if (equal current-subtree-hidden t)
+              ;; Make the subtree visible.
+              (progn
+                (aug-line-move 1)
+                (end-of-line)
+                (backward-char)
+                (while (and (not
+                             (equal (file-name-directory
+                                     (directory-file-name
+                                      (concat "" (get-text-property
+                                                  (point) 'file-path))))
+                                    current-file-path))
+                            (> (length (file-name-directory
+                                        (directory-file-name
+                                         (concat "" (get-text-property
+                                                     (point)
+                                                     'file-path)))))
+                               (length current-file-path)))
+                  (let ((line-start (save-excursion
+                                      (beginning-of-line)
+                                      (point)))
+                        (line-end (save-excursion
+                                    (aug-line-move 1)
+                                    (beginning-of-line)
+                                    (point))))
+                    (remove-overlays start end 'after-string
+                                     aug-hidden-marker)
+                    (save-excursion
+                      (aug-toggle-current-line-visibility
+                       (not current-subtree-hidden) line-start line-end))
+                    (aug-line-move 1)
+                    (end-of-line)
+                    (backward-char 1))))
+              ;; Make the subtree invisible.
+              (progn
+                (aug-line-move 1)
+                (end-of-line)
+                (backward-char 1)
+                (setq current-overlay (make-overlay start (1- end)))
+                (overlay-put current-overlay 'after-string
+                             aug-hidden-marker)
+                (while (and (not
+                             (equal (file-name-directory
+                                     (directory-file-name
+                                      (concat "" (get-text-property
+                                                  (point) 'file-path))))
+                                    current-file-path))
+                            (> (length (file-name-directory
+                                        (directory-file-name
+                                         (concat "" (get-text-property
+                                                     (point)
+                                                     'file-path)))))
+                               (length current-file-path)))
+                  (let  ((line-start (save-excursion
+                                       (beginning-of-line)
+                                       (point)))
+                         (line-end (save-excursion
+                                     (aug-line-move 1)
+                                     (beginning-of-line)
+                                     (point))))
+                    (unless (equal (get-text-property (point)
+                                                      'subtree-hidden) t))
+                    (aug-toggle-current-line-visibility
+                     (not current-subtree-hidden) line-start line-end)
+                    (aug-line-move 1)
+                    (end-of-line)
+                    (backward-char 1))))))
+      (put-text-property start end 'subtree-hidden
+                         (not current-subtree-hidden))
+      (toggle-read-only 1)))
+  ;; Disallow moving to invisible lines.
+  (setq line-move-ignore-invisible t)
+  (setq line-move-visual t))
+
 
 ;;=========================================================================
 ;; Local keymap
@@ -1072,6 +1320,7 @@ Returns nothing."
     (define-key map (kbd "C") 'aug-cycle-sorting)
     (define-key map (kbd "|") 'aug-toggle-indentation-prefix)
     (define-key map (kbd ".") 'aug-toggle-dotfiles)
+    (define-key map (kbd "m") 'aug-toggle-subtree-visibility)
     ;; File/directory opening
     (define-key map (kbd "V") 'aug-open-current-thing-read-only)
     (define-key map (kbd "v") 'aug-open-current-thing-in-view-mode)
