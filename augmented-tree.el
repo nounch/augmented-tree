@@ -636,7 +636,8 @@ Returns nothing, creates augmeted tree output and displays it in a buffer."
           (switch-to-buffer-other-window aug-buffer))
         (progn
           (switch-to-buffer aug-buffer)
-          (aug-insert-tree tree-string-lines)))))
+          (aug-insert-tree tree-string-lines)))
+    (aug-remove-overlays)))
 
 (defun aug-tree-other-window (input)
   "Like `aug-tree', but display the output in a window other than the
@@ -867,7 +868,8 @@ Returns nothing."
   ;;   (setq default-directory current-path))
   (setq default-directory (aug-path-of-current-thing))
   (aug-tree nil (format "%s %s" aug-tree-command
-                        (aug-path-of-current-thing))))
+                        (aug-path-of-current-thing)))
+  (aug-remove-overlays))
 
 (defun aug-go-to-parent (input)
   "Call `aug-tree' for the parent directory and display it in
@@ -882,7 +884,8 @@ Returns nothing."
          (parent-path (substring current-path 0 match-index)))
     (setq default-directory parent-path)
     ;; Display the subtree for the current element.
-    (aug-tree nil (format "%s %s" aug-tree-command parent-path))))
+    (aug-tree nil (format "%s %s" aug-tree-command parent-path))
+    (aug-remove-overlays)))
 
 (defun aug-go-to-parent-with-cursor-on-previous (input)
   "Call `aug-tree' for the parent directory and display it in
@@ -908,7 +911,8 @@ Returns nothing."
             (backward-char)
             (recenter))))
     (unless stop
-      (beginning-of-buffer))))
+      (beginning-of-buffer))
+    (aug-remove-overlays)))
 
 (defun aug-focus-window (input)
   "Make the window which currently displays `aug-buffer' the currently
@@ -1046,6 +1050,13 @@ Returns nothing."
                                  (- (length (window-list)) 1)))))
         (setq aug-sidebar-enlarged-p t))))
 
+(defun aug-remove-overlays ()
+  "Remove all overlays used by Augmented Tree.
+
+Returns nothing."
+  (remove-overlays (point-min) (point-max) 'after-string
+                   aug-hidden-marker))
+
 (defun aug-update (input)
   "Update the current tree in case files/directories have been moved, added
 or removed, The cursor jumps to the beginning of the buffer.
@@ -1054,8 +1065,7 @@ Returns nothing."
   (interactive "P")
   (aug-tree nil (format "%s %s" aug-tree-command default-directory))
   ;; Remove any potential overlay residues.
-  (remove-overlays (point-min) (point-max) 'after-string
-                   aug-hidden-marker))
+  (aug-remove-overlays))
 
 (defun aug-reverse (input)
   "Reverse the sort order for the current sorting type. For more info on
