@@ -42,6 +42,7 @@ The tree buffer provides various key bindings for navigating the tree.
 - Cycle between sorting types (at the moment: lexicographic and by code-point)
 - Reverse the sort order
 - Jump to next/previous button in the tree buffer
+- Jump to next/previous directory button in the tree buffer
 - Navigation: go to parent/go to child/go to parent, but keep point on the button to the previous directory/file
 - Refresh the tree on every interface change (when toggling sort order/indentation marker etc.)
 - Open file/directory in view mode and jump back to the Augmented Tree buffer when hitting `q`
@@ -63,6 +64,8 @@ Cursor movement:
 
   "n" / "j" - Next line
   "p" / "k" - Previous line
+  "M-N" - Next directory
+  "M-P" - Previous directory
 
 File preview:
 

@@ -67,6 +67,8 @@
 ;;
 ;;   "n" / "j" - Next line
 ;;   "p" / "k" - Previous line
+;;  "M-N" - Next directory
+;;  "M-P" - Previous directory
 ;;
 ;; File preview:
 ;;
@@ -718,6 +720,31 @@ Returns nothing."
       (backward-char)
       (line-move -1)))
 
+(defun aug-next-directory (input)
+  "Move the cursor to the next directory in `aug-buffer'. When at the end
+of the buffer, jump to the first line of the buffer. Skip empty lines.
+
+Returns nothing."
+  (interactive "P")
+  (let ((current-aug-thing-type nil))
+    (while (not (equal current-aug-thing-type aug-thing-type-directory))
+      (call-interactively 'aug-next-line)
+      (setq current-aug-thing-type (get-text-property (point)
+                                                      'aug-thing-type)))))
+
+(defun aug-previous-directory (input)
+  "Move the cursor to the previous directory in `aug-buffer'. When at the
+beginning of the buffer, jump to the last line of the buffer. Skip empty
+lines.
+
+Returns nothing."
+  (interactive "P")
+  (let ((current-aug-thing-type nil))
+    (while (not (equal current-aug-thing-type aug-thing-type-directory))
+      (call-interactively 'aug-previous-line)
+      (setq current-aug-thing-type (get-text-property (point)
+                                                      'aug-thing-type)))))
+
 (defun aug-kill-buffer (input)
   "Kill `aug-buffer', even when the cursor is currently not in that buffer.
 This is a convenient way to remove the sidebar.
@@ -1299,6 +1326,8 @@ Returns nothing."
     (define-key map (kbd "j") 'aug-next-line)  ; Same as `n'
     (define-key map (kbd "p") 'aug-previous-line)
     (define-key map (kbd "k") 'aug-previous-line)  ; Same as `p'
+    (define-key map (kbd "M-N") 'aug-next-directory)
+    (define-key map (kbd "M-P") 'aug-previous-directory)
     ;; File Preview
     (define-key map (kbd "N") 'aug-preview-next-line)
     (define-key map (kbd "P") 'aug-preview-previous-line)
