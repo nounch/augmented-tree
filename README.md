@@ -47,6 +47,11 @@ The tree buffer provides various key bindings for navigating the tree.
 - Refresh the tree on every interface change (when toggling sort order/indentation marker etc.)
 - Open file/directory in view mode and jump back to the Augmented Tree buffer when hitting `q`
 - Open file/directory read-only or writable
+- Open all files and directories in the current region
+- Open all files in the current region
+- Open all directories in the current region
+- Toggle the current file or directory marked/unmarked
+- Open all marked files and/or directories
 - Intuitive keybindings (the keymap can be changed at will, though)
 
 # Interactive commands
@@ -75,6 +80,8 @@ File preview:
   "C-c o a" - Open all files and directories in the current region
   "C-c o f" - Open all files in the current region
   "C-c o d" - Open all directories in the current region
+  "C-c o m" - Open all marked files and/or directories
+  "M-m" - Toggle the current file or directory marked/unmarked
 
 Buffer management:
 

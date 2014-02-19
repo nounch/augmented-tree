@@ -78,6 +78,8 @@
 ;;   "C-c o a" - Open all files and directories in the current region
 ;;   "C-c o f" - Open all files in the current region
 ;;   "C-c o d" - Open all directories in the current region
+;;   "C-c o m" - Open all marked files and/or directories
+;;   "M-m" - Toggle the current file or directory marked/unmarked
 ;;
 ;; Buffer management:
 ;;
@@ -283,6 +285,10 @@ shown.")
 (defcustom aug-hidden-marker " [+]"
   "Marker which is attached to a directory name which has its current
 subtree hidden.")
+
+(defcustom aug-marked-marker " [m]"
+  "Marker indicating that the current file or directory is currently
+marked.")
 
 
 ;;=========================================================================
@@ -556,7 +562,8 @@ Returns nothing, inserts a string in the current buffer."
                        'subtree-hidden nil
                        'aug-thing-type (if (file-directory-p file-path)
                                            aug-thing-type-directory
-                                           aug-thing-type-file)))
+                                           aug-thing-type-file)
+                       'currently-marked nil))
                     (insert "\n"))))))
         tree-string-lines)
   ;; If the `tree' system command was used, it would be sensible to include
@@ -1377,6 +1384,55 @@ Returns nothing."
             (find-file-noselect (get-text-property (point) 'file-path)))
         (call-interactively 'aug-next-line)))))
 
+(defun aug-toggle-current-thing-marked (input &optional stay-on-same-line)
+  "Toggle  the currend file or directory as marked/unmarked and
+automatically move to the next line afterwards.
+
+STAY-ON-SAME-LINE - If `t', do not automatically move to the next line
+                    after toggling.
+
+Returns nothing."
+  (interactive "P")
+  (toggle-read-only -1)
+  (let ((start (save-excursion
+                 (beginning-of-line)
+                 (point)))
+        (end (save-excursion
+               (end-of-line)
+               (point)))
+        (current-overlay nil)
+        (stay-on-same-line (or stay-on-same-line nil)))
+    (if (equal (get-text-property (point) 'currently-marked) t)
+        (progn
+          (remove-overlays start end 'after-string aug-marked-marker)
+          (put-text-property start end 'currently-marked nil))
+        (progn
+          (setq current-overlay (make-overlay start end))
+          (overlay-put current-overlay 'after-string aug-marked-marker)
+          (put-text-property start end 'currently-marked t))))
+  (unless stay-on-same-line
+    (call-interactively 'aug-next-line))
+  (toggle-read-only 1))
+
+(defun aug-open-all-marked-things (input)
+  "Open all currently marked files and/or directories in the current tree
+and. After a file/directory has been opened, it is automatically
+unmarked.
+
+Returns nothing."
+  (interactive "P")
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (message (format "POINT: %S" (point)))
+      (end-of-line)
+      (backward-char)
+      (if (get-text-property (point) 'currently-marked)
+          (progn
+            (find-file-noselect (get-text-property (point) 'file-path))
+            (aug-toggle-current-thing-marked input t)))
+      (end-of-line)
+      (forward-char 2))))
 
 ;;=========================================================================
 ;; Local keymap
@@ -1400,6 +1456,8 @@ Returns nothing."
     (define-key map (kbd "C-c o a") 'aug-open-files-and-dirs-in-region)
     (define-key map (kbd "C-c o f") 'aug-open-files-in-region)
     (define-key map (kbd "C-c o d") 'aug-open-dirs-in-region)
+    (define-key map (kbd "C-c o m") 'aug-open-all-marked-things)
+    (define-key map (kbd "M-m") 'aug-toggle-current-thing-marked)
     ;; Buffer management
     (define-key map (kbd "q") 'aug-kill-buffer)
     (define-key map (kbd "t") 'aug-show-subtree)
