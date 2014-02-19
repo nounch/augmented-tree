@@ -230,7 +230,6 @@ with `buffer-invisibility-spec'.")
 ;; Customizable variables
 ;;=========================================================================
 
-;; DEBUG
 (defcustom aug-tree-command "tree -fn --charset='ASCII'" ;; "tree -fnX"
   "Tree command which is executed (has to be installed on the system).
 
@@ -1345,8 +1344,6 @@ Returns nothing."
       (call-interactively 'aug-previous-line)
       (call-interactively 'aug-next-line)
       (while (< (point) end)
-        (message (format "OPEN: %s" (get-text-property (point)
-                                                       'file-path)))
         (find-file-noselect (get-text-property (point) 'file-path))
         (call-interactively 'aug-next-line)))))
 
@@ -1424,7 +1421,6 @@ Returns nothing."
   (save-excursion
     (beginning-of-buffer)
     (while (< (point) (point-max))
-      (message (format "POINT: %S" (point)))
       (end-of-line)
       (backward-char)
       (if (get-text-property (point) 'currently-marked)
