@@ -69,6 +69,8 @@
 ;;   "p" / "k" - Previous line
 ;;  "M-N" - Next directory
 ;;  "M-P" - Previous directory
+;;  "M-n" - Go to the next directory on the same level
+;;  "M-p" - Go to the previous directory on the same level
 ;;
 ;; File preview:
 ;;
@@ -741,6 +743,73 @@ Returns nothing."
       (call-interactively 'aug-next-line)
       (setq current-aug-thing-type (get-text-property (point)
                                                       'aug-thing-type)))))
+(defun aug-next-directory-same-level (input)
+  "Move the cursor to the next directory in `aug-buffer' on the same level
+as the current one. When at the end of the buffer, jump to the first line
+of the buffer. Skip empty lines.
+
+Returns nothing."
+  (interactive "P")
+  ;; Only navigate if the current thing is a directory.
+  (if (equal (get-text-property (point) 'aug-thing-type)
+             aug-thing-type-directory)
+      (let ((current-aug-thing-type nil)
+            (common-path (file-name-directory (directory-file-name
+                                               (get-text-property
+                                                (point)  'file-path))))
+            (currentn-path nil)
+            (previous-path nil))
+        (while (not (and
+                     (equal current-aug-thing-type
+                            aug-thing-type-directory)
+                     (equal common-path (file-name-directory
+                                         (directory-file-name
+                                          (get-text-property
+                                           (point) 'file-path))))))
+          ;; Skip the `Go up' link line.
+          (unless (or (equal (get-text-property (point) 'aug-thing-type)
+                             'aug-thing-type-directory)
+                      (equal (get-text-property (point) 'aug-thing-type)
+                             'aug-thing-type-file))
+            (setq current-path (get-text-property (point) 'file-path)))
+          (call-interactively 'aug-next-line)
+          (setq current-aug-thing-type (get-text-property
+                                        (point) 'aug-thing-type))
+          (setq previous-path current-path)))))
+
+(defun aug-previous-directory-same-level (input)
+  "Move the cursor to the previous directory in `aug-buffer' on the same
+level as the current one. When at the end of the buffer, jump to the first
+line of the buffer. Skip empty lines.
+
+Returns nothing."
+  (interactive "P")
+  ;; Only navigate if the current thing is a directory.
+  (if (equal (get-text-property (point) 'aug-thing-type)
+             aug-thing-type-directory)
+      (let ((current-aug-thing-type nil)
+            (common-path (file-name-directory (directory-file-name
+                                               (get-text-property
+                                                (point)  'file-path))))
+            (currentn-path nil)
+            (previous-path nil))
+        (while (not (and
+                     (equal current-aug-thing-type
+                            aug-thing-type-directory)
+                     (equal common-path (file-name-directory
+                                         (directory-file-name
+                                          (get-text-property
+                                           (point) 'file-path))))))
+          ;; Skip the `Go up' link line.
+          (unless (or (equal (get-text-property (point) 'aug-thing-type)
+                             'aug-thing-type-directory)
+                      (equal (get-text-property (point) 'aug-thing-type)
+                             'aug-thing-type-file))
+            (setq current-path (get-text-property (point) 'file-path)))
+          (call-interactively 'aug-previous-line)
+          (setq current-aug-thing-type (get-text-property
+                                        (point) 'aug-thing-type))
+          (setq previous-path current-path)))))
 
 (defun aug-previous-directory (input)
   "Move the cursor to the previous directory in `aug-buffer'. When at the
@@ -1444,6 +1513,8 @@ Returns nothing."
     (define-key map (kbd "k") 'aug-previous-line)  ; Same as `p'
     (define-key map (kbd "M-N") 'aug-next-directory)
     (define-key map (kbd "M-P") 'aug-previous-directory)
+    (define-key map (kbd "M-n") 'aug-next-directory-same-level)
+    (define-key map (kbd "M-p") 'aug-previous-directory-same-level)
     ;; File Preview
     (define-key map (kbd "N") 'aug-preview-next-line)
     (define-key map (kbd "P") 'aug-preview-previous-line)

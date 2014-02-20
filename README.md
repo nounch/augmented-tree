@@ -71,6 +71,8 @@ Cursor movement:
   "p" / "k" - Previous line
   "M-N" - Next directory
   "M-P" - Previous directory
+  "M-n" - Go to the next directory on the same level
+  "M-p" - Go to the previous directory on the same level
 
 File preview:
 
