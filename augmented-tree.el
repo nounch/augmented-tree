@@ -82,6 +82,8 @@
 ;;   "C-c o d" - Open all directories in the current region
 ;;   "C-c o m" - Open all marked files and/or directories
 ;;   "M-m" - Toggle the current file or directory marked/unmarked
+;;   "?" - Show the full path of the current file/directory in the
+;;         minibuffer
 ;;
 ;; Buffer management:
 ;;
@@ -1499,6 +1501,19 @@ Returns nothing."
       (end-of-line)
       (forward-char 2))))
 
+(defun aug-show-info-for-current-thing (input)
+  "Show whetzer the current thing is a file or a directory along with its
+full path in the minibuffer.
+
+Returns nothing."
+  (interactive "P")
+  (message (format "%s: %s"
+                   (if (equal (get-text-property (point) 'aug-thing-type)
+                              aug-thing-type-file)
+                       "File"
+                       "Directory")
+                   (get-text-property (point) 'file-path))))
+
 ;;=========================================================================
 ;; Local keymap
 ;;=========================================================================
@@ -1525,6 +1540,7 @@ Returns nothing."
     (define-key map (kbd "C-c o d") 'aug-open-dirs-in-region)
     (define-key map (kbd "C-c o m") 'aug-open-all-marked-things)
     (define-key map (kbd "M-m") 'aug-toggle-current-thing-marked)
+    (define-key map (kbd "?") 'aug-show-info-for-current-thing)
     ;; Buffer management
     (define-key map (kbd "q") 'aug-kill-buffer)
     (define-key map (kbd "t") 'aug-show-subtree)

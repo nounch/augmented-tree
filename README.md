@@ -52,6 +52,9 @@ The tree buffer provides various key bindings for navigating the tree.
 - Open all directories in the current region
 - Toggle the current file or directory marked/unmarked
 - Open all marked files and/or directories
+- Go to the next/previous directory
+- Go to the next/previous directory on the same level
+- Show the full path of the current file/directory in the minibuffer
 - Intuitive keybindings (the keymap can be changed at will, though)
 
 # Interactive commands
@@ -84,6 +87,8 @@ File preview:
   "C-c o d" - Open all directories in the current region
   "C-c o m" - Open all marked files and/or directories
   "M-m" - Toggle the current file or directory marked/unmarked
+  "?" - Show the full path of the current file/directory in the
+        minibuffer
 
 Buffer management:
 
