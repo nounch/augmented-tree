@@ -81,6 +81,10 @@
 ;;   "C-c o f" - Open all files in the current region
 ;;   "C-c o d" - Open all directories in the current region
 ;;   "C-c o m" - Open all marked files and/or directories
+;;   "C-c m u" - Unmark everything
+;;   "C-c m a" - Mark all files and directories matching RegEx
+;;   "C-c m f" - Mark all files matching RegEx
+;;   "C-c m d" - Mark all directories matching RegEx
 ;;   "M-m" - Toggle the current file or directory marked/unmarked
 ;;   "?" - Show the full path of the current file/directory in the
 ;;         minibuffer
@@ -1514,6 +1518,127 @@ Returns nothing."
                        "Directory")
                    (get-text-property (point) 'file-path))))
 
+(defun aug-unmark-everything (input)
+  "Unmarks everything in the Augmented Tree buffer.
+
+Returns nothing."
+  (interactive "P")
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (end-of-line)
+      (backward-char)
+      (unless (equal (get-text-property (point) 'currently-marked) nil)
+        (call-interactively 'aug-toggle-current-thing-marked t))
+      (end-of-line)
+      (forward-char 2))))
+
+;;-------------------------------------------------------------------------
+;; Note
+;;-------------------------------------------------------------------------
+;;
+;; Concerning the separation of `aug-mark-all-things-matching-regexp',
+;; `aug-mark-all-files-matching-regexp' and
+;; `aug-mark-all-dirs-matching-regexp':
+;;
+;; It may not seem obvious, but having those three very similar methods
+;; separated spares additional tests (if the thing is a file or a directory
+;; or test not at all). This is faster when one is dealing with >1000
+;; files/dirs. It also makes future changes to individual marking methods
+;; easier (file marking could easily evolve to be treated different from file
+;; marking in the future).
+
+(defun aug-mark-all-things-matching-regexp (input)
+  "Query for a regular expression and mark all files and directories that
+match the regular expression. This ignors case by default. If case should
+ not be ignored, `case-fold-search' has to be set manually in the Augmented
+Tree buffer.
+
+This does not unmark any previously marked files/directories. If this is
+desired, `aug-unmark-everything' can be run before running this function.
+If this should happend automatically, one may consider running
+`aug-unmark-everything' automatically using a macro/Elisp function.
+
+Returns nothing."
+  (interactive "MRegEx: ")
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (end-of-line)
+      (backward-char)
+      (let ((current-file-path (get-text-property (point) 'file-path)))
+        (if (and
+             (not (equal current-file-path nil))
+             (not (equal
+                   (string-match input (file-name-nondirectory
+                                        current-file-path)) nil)))
+            (unless (equal (get-text-property (point) 'currently-marked) t)
+              (call-interactively 'aug-toggle-current-thing-marked t))))
+      (end-of-line)
+      (forward-char 2))))
+
+(defun aug-mark-all-files-matching-regexp (input)
+  "Query for a regular expression and mark all files that match the regular
+expression. This ignors case by default. If case should  not be ignored,
+`case-fold-search' has to be set manually in the Augmented Tree buffer.
+
+This does not unmark any previously marked files/directories. If this is
+desired, `aug-unmark-everything' can be run before running this function.
+If this should happend automatically, one may consider running
+`aug-unmark-everything' automatically using a macro/Elisp function.
+
+Returns nothing."
+  (interactive "MRegEx: ")
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (end-of-line)
+      (backward-char)
+      (let ((current-file-path (get-text-property (point) 'file-path)))
+        (if (and
+             (equal (get-text-property (point) 'aug-thing-type)
+                    aug-thing-type-file)
+             (not (equal current-file-path nil))
+             (not (equal
+                   (string-match input (file-name-nondirectory
+                                        current-file-path)) nil)))
+            (unless (equal (get-text-property (point) 'currently-marked) t)
+              (call-interactively 'aug-toggle-current-thing-marked t))))
+      (end-of-line)
+      (forward-char 2))))
+
+(defun aug-mark-all-dirs-matching-regexp (input)
+  "Query for a regular expression and mark all directories that match the
+regular expression. This ignors case by default. If case should  not be
+ignored, `case-fold-search' has to be set manually in the Augmented Tree
+buffer.
+
+This does not unmark any previously marked files/directories. If this is
+desired, `aug-unmark-everything' can be run before running this function.
+If this should happend automatically, one may consider running
+`aug-unmark-everything' automatically using a macro/Elisp function.
+
+Returns nothing."
+  (interactive "MRegEx: ")
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (end-of-line)
+      (backward-char)
+      (let ((current-file-path (get-text-property (point) 'file-path)))
+        (if (and
+             (equal (get-text-property (point) 'aug-thing-type)
+                    aug-thing-type-directory)
+             (not (equal current-file-path nil))
+             (not (equal
+                   (string-match input (file-name-nondirectory
+                                        current-file-path)) nil)))
+            (unless (equal (get-text-property (point) 'currently-marked) t)
+              (call-interactively 'aug-toggle-current-thing-marked t))))
+      (end-of-line)
+      (forward-char 2))))
+
+
 ;;=========================================================================
 ;; Local keymap
 ;;=========================================================================
@@ -1538,9 +1663,14 @@ Returns nothing."
     (define-key map (kbd "C-c o a") 'aug-open-files-and-dirs-in-region)
     (define-key map (kbd "C-c o f") 'aug-open-files-in-region)
     (define-key map (kbd "C-c o d") 'aug-open-dirs-in-region)
-    (define-key map (kbd "C-c o m") 'aug-open-all-marked-things)
-    (define-key map (kbd "M-m") 'aug-toggle-current-thing-marked)
     (define-key map (kbd "?") 'aug-show-info-for-current-thing)
+    ;; Marking
+    (define-key map (kbd "M-m") 'aug-toggle-current-thing-marked)
+    (define-key map (kbd "C-c o m") 'aug-open-all-marked-things)
+    (define-key map (kbd "C-c m u") 'aug-unmark-everything)
+    (define-key map (kbd "C-c m a") 'aug-mark-all-things-matching-regexp)
+    (define-key map (kbd "C-c m f") 'aug-mark-all-files-matching-regexp)
+    (define-key map (kbd "C-c m d") 'aug-mark-all-dirs-matching-regexp)
     ;; Buffer management
     (define-key map (kbd "q") 'aug-kill-buffer)
     (define-key map (kbd "t") 'aug-show-subtree)

@@ -52,6 +52,8 @@ The tree buffer provides various key bindings for navigating the tree.
 - Open all directories in the current region
 - Toggle the current file or directory marked/unmarked
 - Open all marked files and/or directories
+- Unmark everything
+- Mark all files and/or directories matching a regular expression
 - Go to the next/previous directory
 - Go to the next/previous directory on the same level
 - Show the full path of the current file/directory in the minibuffer
@@ -86,6 +88,10 @@ File preview:
   "C-c o f" - Open all files in the current region
   "C-c o d" - Open all directories in the current region
   "C-c o m" - Open all marked files and/or directories
+  "C-c m u" - Unmark everything
+  "C-c m a" - Mark all files and directories matching RegEx
+  "C-c m f" - Mark all files matching RegEx
+  "C-c m d" - Mark all directories matching RegEx
   "M-m" - Toggle the current file or directory marked/unmarked
   "?" - Show the full path of the current file/directory in the
         minibuffer
