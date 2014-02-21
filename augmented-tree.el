@@ -1645,7 +1645,7 @@ Returns nothing."
 with the full path of the marked file or directory as argument.
 
 Returns nothing."
-  (interactive "xFunction [lambda(path) (...)]: ")
+  (interactive "xFunction [(lambda (path) (...))]: ")
   (save-excursion
     (beginning-of-buffer)
     (while (< (point) (point-max))
