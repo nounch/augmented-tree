@@ -58,6 +58,7 @@ The tree buffer provides various key bindings for navigating the tree.
 - Go to the next/previous directory on the same level
 - Go to the next/previous marked file or directory
 - Call a function on each marked file or directory
+- Call a shell command on each marked thing with the path of the thing available as `$AUGP' (and optionally show the output in a new buffer).
 - Show the full path of the current file/directory in the minibuffer
 - Intuitive keybindings (the keymap can be changed at will, though)
 
@@ -96,6 +97,11 @@ File preview:
   "C-c m d" - Mark all directories matching RegEx
   "C-c m c" - Call a function on each marked file or directory with the
               full path of the file/directory as argument.
+  "C-c m s" - Call a shell command on each marked thing with the path of
+              the thing available as `$AUGP'
+  "C-c m o" - Call a shell command on each marked thing with the path of
+              the thing available as `$AUGP' and show the output in a
+              new buffer.
   "M-u" - Go to the next marked file or directory
   "M-i" - Go to the previous marked file or directory
   "M-m" - Toggle the current file or directory marked/unmarked

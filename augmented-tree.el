@@ -87,6 +87,11 @@
 ;;   "C-c m d" - Mark all directories matching RegEx
 ;;   "C-c m c" - Call a function on each marked file or directory with the
 ;;               full path of the file/directory as argument.
+;;   "C-c m s" - Call a shell command on each marked thing with the path of
+;;               the thing available as `$AUGP'
+;;   "C-c m o" - Call a shell command on each marked thing with the path of
+;;               the thing available as `$AUGP' and show the output in a
+;;               new buffer.
 ;;   "M-u" - Go to the next marked file or directory
 ;;   "M-i" - Go to the previous marked file or directory
 ;;   "M-m" - Toggle the current file or directory marked/unmarked
@@ -237,6 +242,11 @@ with `buffer-invisibility-spec'.")
 (defvar aug-thing-type-file :file
   "Indicates that the referenced thing is a file.")
 
+(defvar aug-shell-command-env-variable "AUG"
+  "Environment variable to use with commands like
+`aug-call-shell-command-on-each-marked-thing' and
+`aug-call-shell-command-to-string-on-each-marked-thing'")
+
 
 ;;=========================================================================
 ;; Customizable variables
@@ -249,6 +259,10 @@ Note: By default hidden files (prefixed with a dot `.') are not printed.")
 
 (defcustom aug-buffer "*Augmented Tree*"
   "Name of the output buffer.")
+
+(defcustom aug-shell-command-output-buffer
+  "*Augmented Tree Shell Command Output*"
+  "Name of the output buffer for shell commands.")
 
 (defcustom aug-parent-link-text "Go up"
   "Text for the link to the parent directory in the output buffer.")
@@ -1684,6 +1698,100 @@ Returns nothing."
       (end-of-line)
       (forward-char 2))))
 
+(defun aug-call-shell-command-on-each-marked-thing (input)
+  "Query for a shell command to call for each currently marked file or
+directory with the full path of the marked file or directory available as
+the environment variable `$AUGP' in the command. If the string \"%s\"
+itself should be included without being replaced, it should be denoted as
+\"%%s\".
+
+Note: `$AUGP' will be set for every command individually. Keep in mind that
+this variable might clash with variables the command itself depends on. To
+prevent this, the variable `aug-shell-command-env-variable' can be
+customized. Also, the shell in use has to support those kinds of variables.
+For 99% of use cases this probably does not matter, however.
+
+Example:
+
+  M-x aug-call-shell-command-on-each-marked-thing RET \"head -n 3 $AUGP >> $AUGP;\"
+
+  This will run the follwing command:
+
+  `$AUGP=/path/to/file/or/dir; head -n 3 $AUGP >> $AUGP;'
+
+Returns nothing."
+  (interactive "MShell command [head -n 3 $AUGP >> $AUGP;]: "
+               )
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (end-of-line)
+      (backward-char)
+      (unless (equal (get-text-property (point) 'currently-marked) nil)
+        (shell-command
+         (concat aug-shell-command-env-variable "=" (get-text-property (point) 'file-path) "; "
+                 input)))
+      (end-of-line)
+      (forward-char 2))))
+
+(defun aug-call-shell-command-to-string-on-each-marked-thing (input)
+  "Query for a shell command to call for each currently marked file or
+directory with the full path of the marked file or directory available as
+the environment variable `$AUGP' in the command and write all output to the
+buffer `aug-shell-command-output-buffer'. If the string \"%s\" itself
+should be included without being replaced, it should be denoted as \"%%s\".
+
+Note: `$AUGP' will be set for every command individually. Keep in mind that
+this variable might clash with variables the command itself depends on. To
+prevent this, the variable `aug-shell-command-env-variable' can be
+customized. Also, the shell in use has to support those kinds of variables.
+For 99% of use cases this probably does not matter, however.
+
+Example:
+
+  M-x aug-call-shell-command-on-each-marked-thing RET \"head -n 3 $AUGP >> $AUGP;\"
+
+  This will run the follwing command:
+
+  `$AUGP=/path/to/file/or/dir; head -n 3 $AUGP >> $AUGP;'
+
+Returns nothing."
+  (interactive "MShell command [head -n 3 $AUGP >> $AUGP;]: "
+               )
+  (let ((output ""))
+    (save-excursion
+      (beginning-of-buffer)
+      ;; Collect the outpu.
+      ;; (The `save-excursion' part ensures that the `while' will not
+      ;; forcefully abort the function when hitting the end of the buffer
+      ;; (`while: End of buffer'). So it is ensured that the output buffer
+      ;; is shown.)
+      (while (< (point) (save-excursion
+                          (end-of-buffer)
+                          (aug-line-move -2)
+                          (end-of-line)
+                          (point)))
+        (end-of-line)
+        (backward-char)
+        (unless (equal (get-text-property (point) 'currently-marked) nil)
+          (setq output (concat output "\n"
+                               (shell-command-to-string
+                                (concat aug-shell-command-env-variable
+                                        "=" (get-text-property (point)
+                                                               'file-path)
+                                        "; " input)))))
+        (end-of-line)
+        (forward-char 2)))
+    ;; Write to ouptut the buffer buffer.
+    (display-buffer (get-buffer-create aug-shell-command-output-buffer)
+                    t)
+    (with-selected-window (get-buffer-window
+                           aug-shell-command-output-buffer)
+      (toggle-read-only -1)
+      (erase-buffer)
+      (insert output)
+      (toggle-read-only 1))))
+
 
 ;;=========================================================================
 ;; Local keymap
@@ -1719,6 +1827,10 @@ Returns nothing."
     (define-key map (kbd "C-c m d") 'aug-mark-all-dirs-matching-regexp)
     (define-key map (kbd "C-c m c")
       'aug-call-function-on-each-marked-thing)
+    (define-key map (kbd "C-c m s")
+      'aug-call-shell-command-on-each-marked-thing)
+    (define-key map (kbd "C-c m o")
+      'aug-call-shell-command-to-string-on-each-marked-thing)
     (define-key map (kbd "M-u") 'aug-next-mark)
     (define-key map (kbd "M-i") 'aug-previous-mark)
     ;; Buffer management
