@@ -1531,7 +1531,7 @@ Returns nothing."
       (end-of-line)
       (backward-char)
       (unless (equal (get-text-property (point) 'currently-marked) nil)
-        (call-interactively 'aug-toggle-current-thing-marked t))
+        (aug-toggle-current-thing-marked input t))
       (end-of-line)
       (forward-char 2))))
 
