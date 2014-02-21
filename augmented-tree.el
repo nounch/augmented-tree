@@ -242,11 +242,6 @@ with `buffer-invisibility-spec'.")
 (defvar aug-thing-type-file :file
   "Indicates that the referenced thing is a file.")
 
-(defvar aug-shell-command-env-variable "AUG"
-  "Environment variable to use with commands like
-`aug-call-shell-command-on-each-marked-thing' and
-`aug-call-shell-command-to-string-on-each-marked-thing'")
-
 
 ;;=========================================================================
 ;; Customizable variables
@@ -314,6 +309,11 @@ subtree hidden.")
 (defcustom aug-marked-marker " [m]"
   "Marker indicating that the current file or directory is currently
 marked.")
+
+(defcustom aug-shell-command-env-variable "AUGP"
+  "Environment variable to use with commands like
+`aug-call-shell-command-on-each-marked-thing' and
+`aug-call-shell-command-to-string-on-each-marked-thing'")
 
 
 ;;=========================================================================
@@ -1183,7 +1183,9 @@ Returns nothing."
 
 Returns nothing."
   (remove-overlays (point-min) (point-max) 'after-string
-                   aug-hidden-marker))
+                   aug-hidden-marker)
+  (remove-overlays (point-min) (point-max) 'after-string
+                   aug-marked-marker))
 
 (defun aug-update (input)
   "Update the current tree in case files/directories have been moved, added
@@ -1244,7 +1246,8 @@ Returns nothing."
           (setq aug-indentation-prefix aug-indentation-delimiter-prefix))
         (setq aug-indentation-prefix aug-previous-indentation-prefix))
     (aug-tree nil (format "%s %s" aug-tree-command default-directory)
-              aug-current-sorting-type aug-currently-reversed)))
+              aug-current-sorting-type aug-currently-reversed)
+    (aug-remove-overlays)))
 
 (defun aug-toggle-dotfiles (input)
   "Toggle displaying dotfiles/dirs in the tree.
@@ -1729,7 +1732,8 @@ Returns nothing."
       (backward-char)
       (unless (equal (get-text-property (point) 'currently-marked) nil)
         (shell-command
-         (concat aug-shell-command-env-variable "=" (get-text-property (point) 'file-path) "; "
+         (concat aug-shell-command-env-variable "="
+                 (get-text-property (point) 'file-path) "; "
                  input)))
       (end-of-line)
       (forward-char 2))))
