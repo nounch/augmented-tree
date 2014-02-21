@@ -56,6 +56,7 @@ The tree buffer provides various key bindings for navigating the tree.
 - Mark all files and/or directories matching a regular expression
 - Go to the next/previous directory
 - Go to the next/previous directory on the same level
+- Call a function on each marked file or directory
 - Show the full path of the current file/directory in the minibuffer
 - Intuitive keybindings (the keymap can be changed at will, though)
 
