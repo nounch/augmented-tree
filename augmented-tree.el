@@ -87,6 +87,8 @@
 ;;   "C-c m d" - Mark all directories matching RegEx
 ;;   "C-c m c" - Call a function on each marked file or directory with the
 ;;               full path of the file/directory as argument.
+;;   "M-u" - Go to the next marked file or directory
+;;   "M-i" - Go to the previous marked file or directory
 ;;   "M-m" - Toggle the current file or directory marked/unmarked
 ;;   "?" - Show the full path of the current file/directory in the
 ;;         minibuffer
@@ -751,6 +753,7 @@ Returns nothing."
       (call-interactively 'aug-next-line)
       (setq current-aug-thing-type (get-text-property (point)
                                                       'aug-thing-type)))))
+
 (defun aug-next-directory-same-level (input)
   "Move the cursor to the next directory in `aug-buffer' on the same level
 as the current one. When at the end of the buffer, jump to the first line
@@ -831,6 +834,31 @@ Returns nothing."
       (call-interactively 'aug-previous-line)
       (setq current-aug-thing-type (get-text-property (point)
                                                       'aug-thing-type)))))
+
+(defun aug-next-mark (input)
+  "Move the cursor to the next marked file or directory in `aug-buffer'.
+When at the end of the buffer, jump to the first line of the buffer. Skip
+empty lines.
+
+Returns nothing."
+  (interactive "P")
+  ;; Do not check the current line (it may be marked).
+  (call-interactively 'aug-next-line)
+  (while (not (equal (get-text-property (point) 'currently-marked) t))
+    (call-interactively 'aug-next-line)))
+
+(defun aug-previous-mark (input)
+  "Move the cursor to the next marked file or directory in `aug-buffer'.
+When at the beginning of the buffer, jump to the last line of the buffer.
+Skip empty lines.
+
+Returns nothing."
+  (interactive "P")
+  ;; Do not check the current line (it may be marked).
+  (call-interactively 'aug-previous-line)
+  (while (not (equal (get-text-property (point) 'currently-marked) t))
+    (call-interactively 'aug-previous-line)))
+
 
 (defun aug-kill-buffer (input)
   "Kill `aug-buffer', even when the cursor is currently not in that buffer.
@@ -1691,6 +1719,8 @@ Returns nothing."
     (define-key map (kbd "C-c m d") 'aug-mark-all-dirs-matching-regexp)
     (define-key map (kbd "C-c m c")
       'aug-call-function-on-each-marked-thing)
+    (define-key map (kbd "M-u") 'aug-next-mark)
+    (define-key map (kbd "M-i") 'aug-previous-mark)
     ;; Buffer management
     (define-key map (kbd "q") 'aug-kill-buffer)
     (define-key map (kbd "t") 'aug-show-subtree)
