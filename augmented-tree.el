@@ -1879,7 +1879,7 @@ be reconfigured without side effects.")
 
 
 ;;=========================================================================
-;; Major moden
+;; Major mode
 ;;=========================================================================
 
 (define-derived-mode augmented-tree-mode fundamental-mode "Augmented Tree"
