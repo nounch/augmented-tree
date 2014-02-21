@@ -85,6 +85,8 @@
 ;;   "C-c m a" - Mark all files and directories matching RegEx
 ;;   "C-c m f" - Mark all files matching RegEx
 ;;   "C-c m d" - Mark all directories matching RegEx
+;;   "C-c m c" - Call a function on each marked file or directory with the
+;;               full path of the file/directory as argument.
 ;;   "M-m" - Toggle the current file or directory marked/unmarked
 ;;   "?" - Show the full path of the current file/directory in the
 ;;         minibuffer
@@ -1638,6 +1640,22 @@ Returns nothing."
       (end-of-line)
       (forward-char 2))))
 
+(defun aug-call-function-on-each-marked-thing (input)
+  "Query for Elisp code to call for each currently marked file or directory
+with the full path of the marked file or directory as argument.
+
+Returns nothing."
+  (interactive "xFunction [lambda(path) (...)]: ")
+  (save-excursion
+    (beginning-of-buffer)
+    (while (< (point) (point-max))
+      (end-of-line)
+      (backward-char)
+      (unless (equal (get-text-property (point) 'currently-marked) nil)
+        (funcall input (get-text-property (point) 'file-path)))
+      (end-of-line)
+      (forward-char 2))))
+
 
 ;;=========================================================================
 ;; Local keymap
@@ -1671,6 +1689,8 @@ Returns nothing."
     (define-key map (kbd "C-c m a") 'aug-mark-all-things-matching-regexp)
     (define-key map (kbd "C-c m f") 'aug-mark-all-files-matching-regexp)
     (define-key map (kbd "C-c m d") 'aug-mark-all-dirs-matching-regexp)
+    (define-key map (kbd "C-c m c")
+      'aug-call-function-on-each-marked-thing)
     ;; Buffer management
     (define-key map (kbd "q") 'aug-kill-buffer)
     (define-key map (kbd "t") 'aug-show-subtree)

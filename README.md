@@ -92,6 +92,8 @@ File preview:
   "C-c m a" - Mark all files and directories matching RegEx
   "C-c m f" - Mark all files matching RegEx
   "C-c m d" - Mark all directories matching RegEx
+  "C-c m c" - Call a function on each marked file or directory with the
+              full path of the file/directory as argument.
   "M-m" - Toggle the current file or directory marked/unmarked
   "?" - Show the full path of the current file/directory in the
         minibuffer
