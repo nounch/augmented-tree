@@ -88,10 +88,11 @@
 ;;   "C-c m c" - Call a function on each marked file or directory with the
 ;;               full path of the file/directory as argument.
 ;;   "C-c m s" - Call a shell command on each marked thing with the path of
-;;               the thing available as `$AUGP'
+;;               the thing available as `$AUGP' and the name of thing
+;;               available as `$AUGN'
 ;;   "C-c m o" - Call a shell command on each marked thing with the path of
-;;               the thing available as `$AUGP' and show the output in a
-;;               new buffer.
+;;               the thing available as `$AUGP' and the name of the thing
+;;               available  as `$AUGN' and show the output in a new buffer.
 ;;   "M-u" - Go to the next marked file or directory
 ;;   "M-i" - Go to the previous marked file or directory
 ;;   "M-m" - Toggle the current file or directory marked/unmarked
@@ -310,10 +311,18 @@ subtree hidden.")
   "Marker indicating that the current file or directory is currently
 marked.")
 
-(defcustom aug-shell-command-env-variable "AUGP"
+(defcustom aug-shell-command-env-variable-path "AUGP"
   "Environment variable to use with commands like
 `aug-call-shell-command-on-each-marked-thing' and
-`aug-call-shell-command-to-string-on-each-marked-thing'")
+`aug-call-shell-command-to-string-on-each-marked-thing'.
+This represents the full path of the current file or directory.")
+
+(defcustom aug-shell-command-env-variable-name "AUGN"
+  "Environment variable to use with commands like
+`aug-call-shell-command-on-each-marked-thing' and
+`aug-call-shell-command-to-string-on-each-marked-thing'
+This represents the name of the current file or directory, not its full
+path.")
 
 
 ;;=========================================================================
@@ -1704,27 +1713,29 @@ Returns nothing."
 (defun aug-call-shell-command-on-each-marked-thing (input)
   "Query for a shell command to call for each currently marked file or
 directory with the full path of the marked file or directory available as
-the environment variable `$AUGP' in the command. If the string \"%s\"
-itself should be included without being replaced, it should be denoted as
-\"%%s\".
+the environment variable `$AUGP' and the name of the file or directory
+available as `$AUGN' in the command. Output will not be displayed; if this
+is desired, `aug-call-shell-command-to-string-on-each-marked-thing' can be
+used.
 
-Note: `$AUGP' will be set for every command individually. Keep in mind that
-this variable might clash with variables the command itself depends on. To
-prevent this, the variable `aug-shell-command-env-variable' can be
-customized. Also, the shell in use has to support those kinds of variables.
-For 99% of use cases this probably does not matter, however.
+Note: `$AUGP' and `$AUGN' will be set for every command individually. Keep
+in mind that these variables might clash with variables the command itself
+depends on. To prevent this, the variable
+`aug-shell-command-env-variable-path' can be customized. Also, the shell in
+use has to support those kinds of variables. For 99% of use cases this
+probably does not matter, however.
 
 Example:
 
-  M-x aug-call-shell-command-on-each-marked-thing RET \"head -n 3 $AUGP >> $AUGP;\"
+  M-x aug-call-shell-command-on-each-marked-thing RET printf \"# %s\\n\" $AUGN >> $AUGP; RET
 
   This will run the follwing command:
 
-  `$AUGP=/path/to/file/or/dir; head -n 3 $AUGP >> $AUGP;'
+  `$AUGP=/path/to/file/or/dir; $AUGN=dir; printf \"# %s\\n\\n\" $AUGN >> $AUGP;'
 
 Returns nothing."
-  (interactive "MShell command [head -n 3 $AUGP >> $AUGP;]: "
-               )
+  (interactive
+   "MShell command [printf \"\\n\\n%%s\\n\" $AUGN >> $AUGP;]: ")
   (save-excursion
     (beginning-of-buffer)
     (while (< (point) (point-max))
@@ -1732,36 +1743,40 @@ Returns nothing."
       (backward-char)
       (unless (equal (get-text-property (point) 'currently-marked) nil)
         (shell-command
-         (concat aug-shell-command-env-variable "="
+         (concat aug-shell-command-env-variable-path "="
                  (get-text-property (point) 'file-path) "; "
-                 input)))
+                 aug-shell-command-env-variable-name "="
+                 (file-name-nondirectory
+                  (get-text-property (point) 'file-path)) "; "
+                  input)))
       (end-of-line)
       (forward-char 2))))
 
 (defun aug-call-shell-command-to-string-on-each-marked-thing (input)
   "Query for a shell command to call for each currently marked file or
 directory with the full path of the marked file or directory available as
-the environment variable `$AUGP' in the command and write all output to the
-buffer `aug-shell-command-output-buffer'. If the string \"%s\" itself
-should be included without being replaced, it should be denoted as \"%%s\".
+the environment variable `$AUGP' and the name of the file or directory
+available as `$AUGN' in the command and write all output to the buffer
+`aug-shell-command-output-buffer'.
 
-Note: `$AUGP' will be set for every command individually. Keep in mind that
-this variable might clash with variables the command itself depends on. To
-prevent this, the variable `aug-shell-command-env-variable' can be
-customized. Also, the shell in use has to support those kinds of variables.
-For 99% of use cases this probably does not matter, however.
+Note: `$AUGP' and `$AUGN' will be set for every command individually. Keep
+in mind that these variables might clash with variables the command itself
+depends on. To prevent this, the variable
+`aug-shell-command-env-variable-path' can be customized. Also, the shell in
+use has to support those kinds of variables. For 99% of use cases this
+probably does not matter, however.
 
 Example:
 
-  M-x aug-call-shell-command-on-each-marked-thing RET \"head -n 3 $AUGP >> $AUGP;\"
+  M-x aug-call-shell-command-on-each-marked-thing RET printf \"%s\\n(%s)\\n\" $AUGN $AUGP; RET
 
   This will run the follwing command:
 
-  `$AUGP=/path/to/file/or/dir; head -n 3 $AUGP >> $AUGP;'
+  `$AUGP=/path/to/file/or/dir; $AUGN=dir; printf \"%s\\n(%s)\\n\" $AUGN $AUGP;'
 
 Returns nothing."
-  (interactive "MShell command [head -n 3 $AUGP >> $AUGP;]: "
-               )
+  (interactive
+   "MShell command [printf \"# %%s\\n(%%s)\\n\" $AUGN $AUGP;]: ")
   (let ((output ""))
     (save-excursion
       (beginning-of-buffer)
@@ -1780,10 +1795,17 @@ Returns nothing."
         (unless (equal (get-text-property (point) 'currently-marked) nil)
           (setq output (concat output "\n"
                                (shell-command-to-string
-                                (concat aug-shell-command-env-variable
+                                (concat aug-shell-command-env-variable-path
                                         "=" (get-text-property (point)
                                                                'file-path)
-                                        "; " input)))))
+                                        "; "
+                                        aug-shell-command-env-variable-name
+                                        "="
+                                        (file-name-nondirectory
+                                         (get-text-property (point)
+                                                            'file-path))
+                                        "; "
+                                        input)))))
         (end-of-line)
         (forward-char 2)))
     ;; Write to ouptut the buffer buffer.
